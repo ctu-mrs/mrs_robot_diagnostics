@@ -74,6 +74,7 @@ private:
 
   // | ---------------------- ROS subscribers --------------------- |
   mrs_lib::SubscribeHandler<mrs_msgs::HwApiStatus> sh_hw_api_status_;
+  mrs_lib::SubscribeHandler<mrs_msgs::ControlManagerDiagnostics> sh_control_manager_diagnostics_;
 
   // | ----------------------- main timer ----------------------- |
 
@@ -83,8 +84,10 @@ private:
 
   // | ------------------ Additional functions ------------------ |
 
-  void parseHwApiStatus(const mrs_msgs::HwApiStatusConstPtr &uav_status);
-  void updateState(const UavState_t &new_state);
+  void parseHwApiStatus(const mrs_msgs::HwApiStatus::ConstPtr &hw_api_status);
+  void parseControlManagerDiagnostics(const mrs_msgs::ControlManagerDiagnostics::ConstPtr &control_manager_diagnostics);
+  void updateUavState(const UavState_t &new_state);
+  void updateTrackerState(const TrackerState_t &new_state);
 };
 //}
 
@@ -98,8 +101,6 @@ void StateMonitor::onInit() {
   /* waits for the ROS to publish clock */
   ros::Time::waitForValid();
   
-  last_update_time_ = ros::Time(0);
-
   /* load parameters */
   mrs_lib::ParamLoader param_loader(nh_, "StateMonitor");
 
@@ -125,13 +126,14 @@ void StateMonitor::onInit() {
   mrs_lib::SubscribeHandlerOptions shopts;
   shopts.nh                 = nh_;
   shopts.node_name          = "StateMonitor";
-  shopts.no_message_timeout = mrs_lib::no_timeout;
+  shopts.no_message_timeout = ros::Duration(1.0);
   shopts.threadsafe         = true;
   shopts.autostart          = true;
   shopts.queue_size         = 10;
   shopts.transport_hints    = ros::TransportHints().tcpNoDelay();
 
   sh_hw_api_status_ = mrs_lib::SubscribeHandler<mrs_msgs::HwApiStatus>(shopts, "hw_api_status_in");
+  sh_control_manager_diagnostics_ = mrs_lib::SubscribeHandler<mrs_msgs::ControlManagerDiagnostics>(shopts, "control_manager_diagnostics_in");
 
   // | ------------------------- timers ------------------------- |
 
@@ -159,24 +161,19 @@ void StateMonitor::timerMain([[maybe_unused]] const ros::TimerEvent &event) {
   }
 
   bool got_hw_api_status = sh_hw_api_status_.newMsg();
-  ros::Time time_now = ros::Time::now();
-
-  if (!got_hw_api_status) {
-    ros::Duration last_message_diff = time_now - last_update_time_;
-    if(last_message_diff > ros::Duration(5.0)){
-      ROS_WARN_THROTTLE(5.0, "[StateMonitor]: waiting for ROS data");
-    }
-    return;
-  }
-
+  bool got_control_manager_diagnostics = sh_control_manager_diagnostics_.newMsg();
 
   if (got_hw_api_status){
     auto hw_api_status = sh_hw_api_status_.getMsg();
     parseHwApiStatus(hw_api_status);
   }
 
+  if (got_control_manager_diagnostics){
+    auto control_manager_diagnostics = sh_control_manager_diagnostics_.getMsg();
+    parseControlManagerDiagnostics(control_manager_diagnostics);
+  }
+
   /* TODO: add more messages types */
-  last_update_time_ = time_now;
 }
 
 //}
@@ -185,26 +182,64 @@ void StateMonitor::timerMain([[maybe_unused]] const ros::TimerEvent &event) {
 
 /* parseHwApiStatus() //{ */
 
-void StateMonitor::parseHwApiStatus(const mrs_msgs::HwApiStatusConstPtr &hw_api_status) {
+void StateMonitor::parseHwApiStatus(const mrs_msgs::HwApiStatus::ConstPtr &hw_api_status) {
   if (!hw_api_status->armed){
-    updateState(DISARMED);
+    updateUavState(DISARMED);
   } else if (uav_state_ == DISARMED || hw_api_status->mode == "AUTO.LOITER" || tracker_state_ == NULL_TRACKER){
-    updateState(ARMED);
+    updateUavState(ARMED);
   }
 }
 
 //}
 
-/* updateState() //{ */
+/* parseControlManagerDiagnostics() //{ */
 
-void StateMonitor::updateState(const UavState_t &new_state) {
+void StateMonitor::parseControlManagerDiagnostics(const mrs_msgs::ControlManagerDiagnostics::ConstPtr &control_manager_diagnostics) {
+  if (control_manager_diagnostics->active_tracker == "LandoffTracker"){
+    updateTrackerState(LANDOFF_TRACKER);
+
+    if (uav_state_ == ARMED){
+      updateUavState(TAKEOFF);
+    } else if (uav_state_ != TAKEOFF){
+      updateUavState(LANDING);
+    }
+  } else if (control_manager_diagnostics->active_tracker == "NullTracker" && uav_state_ == LANDING){
+    updateTrackerState(NULL_TRACKER);
+  } else if (control_manager_diagnostics->joystick_active){
+    updateUavState(MANUAL);
+  } else if (control_manager_diagnostics->flying_normally){
+    updateTrackerState(AUTO_TRACKER);
+
+    updateUavState(AUTONOMOUS);
+  }
+}
+
+//}
+
+/* updateUavState() //{ */
+
+void StateMonitor::updateUavState(const UavState_t &new_state) {
 
   if (uav_state_ == new_state){
     return;
   }
 
-  ROS_INFO("[StateMonitor]: SWITCHING STATE: \"%s\" => \"%s\"", states::uav_state_names[uav_state_].c_str(), states::uav_state_names[new_state].c_str());
+  ROS_INFO("[StateMonitor]: SWITCHING UAV STATE: \"%s\" => \"%s\"", states::uav_state_names[uav_state_].c_str(), states::uav_state_names[new_state].c_str());
   uav_state_ = new_state;
+}
+
+//}
+
+/* updateTrackerState() //{ */
+
+void StateMonitor::updateTrackerState(const TrackerState_t &new_state) {
+
+  if (tracker_state_ == new_state){
+    return;
+  }
+
+  ROS_INFO("[StateMonitor]: SWITCHING TRACKER STATE: \"%s\" => \"%s\"", states::tracker_state_names[tracker_state_].c_str(), states::tracker_state_names[new_state].c_str());
+  tracker_state_ = new_state;
 }
 
 //}

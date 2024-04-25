@@ -31,6 +31,7 @@
 
       <!-- Subscribers (note that the topic names will also be remapped using the namespace as a prefix) -->
       <remap from="~hw_api_status_in" to="hw_api/status" />
+      <remap from="~control_manager_diagnostics_in" to="control_manager/diagnostics" />
 
     </node>
 
