@@ -1,0 +1,27 @@
+<?xml version="1.0"?>
+<package format="2">
+
+  <name>mrs_robot_diagnostics</name>
+  <version>1.0.0</version>
+  <description>
+      An aggregator of states of key components from the MRS (Multi-Robot System) serves as a centralized monitoring system to provide real-time insights into the current status of the entire robotic system.
+  </description>
+
+  <maintainer email="spurny@fly4future.com">Vojtech Spurny</maintainer>
+  <author email="spurny@fly4future.com">Vojtech Spurny</author>
+
+  <license>MIT</license>
+
+  <buildtool_depend>catkin</buildtool_depend>
+
+  <depend>cmake_modules</depend>
+  <depend>roscpp</depend>
+  <depend>nodelet</depend>
+  <depend>mrs_msgs</depend>
+  <depend>mrs_lib</depend>
+
+  <export>
+    <nodelet plugin="${prefix}/nodelets.xml" />
+  </export>
+
+</package>

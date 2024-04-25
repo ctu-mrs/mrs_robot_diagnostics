@@ -1,0 +1,39 @@
+<launch>
+
+  <!-- defines name of the namespace -->
+  <arg name="UAV_NAME" default="$(optenv UAV_NAME uav1)" />
+
+  <arg name="custom_config" default="" />
+
+  <!-- will it run using GNU debugger? -->
+  <arg name="DEBUG" default="false" />
+  <arg unless="$(arg DEBUG)" name="launch_prefix_debug" value=""/>
+  <arg     if="$(arg DEBUG)" name="launch_prefix_debug" value="debug_roslaunch"/>
+
+  <!-- will it run as standalone nodelet or using a nodelet manager? -->
+  <arg name="standalone" default="true" />
+  <arg name="manager" default="$(arg UAV_NAME)_state_monitor_manager" />
+  <arg unless="$(arg standalone)" name="nodelet" value="load"/>
+  <arg     if="$(arg standalone)" name="nodelet" value="standalone"/>
+  <arg unless="$(arg standalone)" name="nodelet_manager" value="$(arg manager)"/>
+  <arg     if="$(arg standalone)" name="nodelet_manager" value=""/>
+
+  <group ns="$(arg UAV_NAME)">
+
+    <!-- IROCBridge nodelet -->
+    <node pkg="nodelet" type="nodelet" name="state_monitor" args="$(arg nodelet) mrs_robot_diagnostics/StateMonitor $(arg nodelet_manager)" launch-prefix="$(arg launch_prefix_debug)" output="screen">
+
+      <param name="config" value="$(find mrs_robot_diagnostics)/config/state_monitor_config.yaml" />
+
+      <param if="$(eval arg('custom_config') == '')" name="custom_config" value="" />
+      <param if="$(eval not arg('custom_config') == '' and arg('custom_config')[0] == '/')" name="custom_config" value="$(arg custom_config)" />
+      <param if="$(eval not arg('custom_config') == '' and not arg('custom_config')[0] == '/')" name="custom_config" value="$(env PWD)/$(arg custom_config)" />
+
+      <!-- Subscribers (note that the topic names will also be remapped using the namespace as a prefix) -->
+      <remap from="~uav_status_in" to="mrs_uav_status/uav_status" />
+
+    </node>
+
+  </group>
+
+</launch>
