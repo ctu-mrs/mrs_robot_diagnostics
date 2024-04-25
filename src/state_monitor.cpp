@@ -8,13 +8,54 @@
 #include <mrs_lib/mutex.h>
 #include <mrs_lib/subscribe_handler.h>
 
-/* custom msgs of MRS group */
-#include <mrs_msgs/UavStatus.h>
+#include <mrs_msgs/HwApiStatus.h>
+#include "mrs_msgs/ControlManagerDiagnostics.h"
+
 
 //}
 
 namespace mrs_robot_diagnostics
 {
+
+  /* enums //{ */
+  typedef enum {
+    UNKNOWN,
+    DISARMED,
+    ARMED,
+    TAKEOFF,
+    LANDING,
+    MANUAL,
+    AUTONOMOUS
+  } UavState_t;
+
+  typedef enum {
+    NULL_TRACKER,
+    LANDOFF_TRACKER,
+    AUTO_TRACKER
+  } TrackerState_t;
+
+  namespace states
+  {
+    // clang-format off
+    const std::vector<std::string> uav_state_names = {
+      "UNKNOWN",
+      "DISARMED",
+      "ARMED",
+      "TAKEOFF",
+      "LANDING",
+      "MANUAL",
+      "AUTONOMOUS"
+    };
+
+    const std::vector<std::string> tracker_state_names = {
+      "NULL_TRACKER",
+      "LANDOFF_TRACKER",
+      "AUTO_TRACKER"
+    };
+    // clang-format on
+  } // namespace states
+
+  /*//}*/
 
 /* class StateMonitor //{ */
 
@@ -28,8 +69,11 @@ private:
 
   ros::Time last_update_time_;
 
+  UavState_t uav_state_ = UavState_t::UNKNOWN;
+  TrackerState_t tracker_state_ = TrackerState_t::NULL_TRACKER;
+
   // | ---------------------- ROS subscribers --------------------- |
-  mrs_lib::SubscribeHandler<mrs_msgs::UavStatus> sh_uav_status_;
+  mrs_lib::SubscribeHandler<mrs_msgs::HwApiStatus> sh_hw_api_status_;
 
   // | ----------------------- main timer ----------------------- |
 
@@ -39,7 +83,8 @@ private:
 
   // | ------------------ Additional functions ------------------ |
 
-  void parseLocalPosition(const mrs_msgs::UavStatusConstPtr &uav_status);
+  void parseHwApiStatus(const mrs_msgs::HwApiStatusConstPtr &uav_status);
+  void updateState(const UavState_t &new_state);
 };
 //}
 
@@ -86,7 +131,7 @@ void StateMonitor::onInit() {
   shopts.queue_size         = 10;
   shopts.transport_hints    = ros::TransportHints().tcpNoDelay();
 
-  sh_uav_status_ = mrs_lib::SubscribeHandler<mrs_msgs::UavStatus>(shopts, "uav_status_in");
+  sh_hw_api_status_ = mrs_lib::SubscribeHandler<mrs_msgs::HwApiStatus>(shopts, "hw_api_status_in");
 
   // | ------------------------- timers ------------------------- |
 
@@ -113,10 +158,10 @@ void StateMonitor::timerMain([[maybe_unused]] const ros::TimerEvent &event) {
     return;
   }
 
-  bool got_uav_status = sh_uav_status_.newMsg();
+  bool got_hw_api_status = sh_hw_api_status_.newMsg();
   ros::Time time_now = ros::Time::now();
 
-  if (!got_uav_status) {
+  if (!got_hw_api_status) {
     ros::Duration last_message_diff = time_now - last_update_time_;
     if(last_message_diff > ros::Duration(5.0)){
       ROS_WARN_THROTTLE(5.0, "[StateMonitor]: waiting for ROS data");
@@ -125,9 +170,9 @@ void StateMonitor::timerMain([[maybe_unused]] const ros::TimerEvent &event) {
   }
 
 
-  if (got_uav_status){
-    auto uav_status = sh_uav_status_.getMsg();
-    parseLocalPosition(uav_status);
+  if (got_hw_api_status){
+    auto hw_api_status = sh_hw_api_status_.getMsg();
+    parseHwApiStatus(hw_api_status);
   }
 
   /* TODO: add more messages types */
@@ -137,12 +182,29 @@ void StateMonitor::timerMain([[maybe_unused]] const ros::TimerEvent &event) {
 //}
 
 // | -------------------- support functions ------------------- |
-//
-/* parseLocalPosition() //{ */
 
-void StateMonitor::parseLocalPosition(const mrs_msgs::UavStatusConstPtr &uav_status) {
-  ROS_INFO_THROTTLE(1,"[IROCBridge]: LocalPosition: x: %.2f, y: %.2f, z: %.2f, heading: %.2f", 
-      uav_status->odom_x, uav_status->odom_y, uav_status->odom_z, uav_status->odom_hdg);
+/* parseHwApiStatus() //{ */
+
+void StateMonitor::parseHwApiStatus(const mrs_msgs::HwApiStatusConstPtr &hw_api_status) {
+  if (!hw_api_status->armed){
+    updateState(DISARMED);
+  } else if (uav_state_ == DISARMED || hw_api_status->mode == "AUTO.LOITER" || tracker_state_ == NULL_TRACKER){
+    updateState(ARMED);
+  }
+}
+
+//}
+
+/* updateState() //{ */
+
+void StateMonitor::updateState(const UavState_t &new_state) {
+
+  if (uav_state_ == new_state){
+    return;
+  }
+
+  ROS_INFO("[StateMonitor]: SWITCHING STATE: \"%s\" => \"%s\"", states::uav_state_names[uav_state_].c_str(), states::uav_state_names[new_state].c_str());
+  uav_state_ = new_state;
 }
 
 //}
