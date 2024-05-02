@@ -14,51 +14,14 @@
 #include <mrs_msgs/HwApiStatus.h>
 #include <mrs_msgs/ControlManagerDiagnostics.h>
 
+#include "mrs_robot_diagnostics/enums/uav_state.h"
+#include "mrs_robot_diagnostics/enums/tracker_state.h"
+
 
 //}
 
 namespace mrs_robot_diagnostics
 {
-
-  /* enums //{ */
-  typedef enum {
-    UNKNOWN,
-    DISARMED,
-    ARMED,
-    TAKEOFF,
-    LANDING,
-    MANUAL,
-    AUTONOMOUS
-  } UavState_t;
-
-  typedef enum {
-    NULL_TRACKER,
-    LANDOFF_TRACKER,
-    AUTO_TRACKER
-  } TrackerState_t;
-
-  namespace states
-  {
-    // clang-format off
-    const std::vector<std::string> uav_state_names = {
-      "UNKNOWN",
-      "DISARMED",
-      "ARMED",
-      "TAKEOFF",
-      "LANDING",
-      "MANUAL",
-      "AUTONOMOUS"
-    };
-
-    const std::vector<std::string> tracker_state_names = {
-      "NULL_TRACKER",
-      "LANDOFF_TRACKER",
-      "AUTO_TRACKER"
-    };
-    // clang-format on
-  } // namespace states
-
-  /*//}*/
 
 /* class StateMonitor //{ */
 
@@ -70,8 +33,8 @@ private:
   ros::NodeHandle   nh_;
   std::atomic<bool> is_initialized_ = false;
 
-  UavState_t uav_state_ = UavState_t::UNKNOWN;
-  TrackerState_t tracker_state_ = TrackerState_t::NULL_TRACKER;
+  uav_state_t uav_state_ = uav_state_t::UNKNOWN;
+  tracker_state_t tracker_state_ = tracker_state_t::NULL_TRACKER;
 
   // | ---------------------- ROS subscribers --------------------- |
   mrs_lib::SubscribeHandler<std_msgs::Bool> sh_automatic_start_can_takeoff_;
@@ -90,8 +53,8 @@ private:
   void parseUavStatus(const mrs_msgs::UavStatus::ConstPtr &uav_status);
   void parseHwApiStatus(const mrs_msgs::HwApiStatus::ConstPtr &hw_api_status);
   void parseControlManagerDiagnostics(const mrs_msgs::ControlManagerDiagnostics::ConstPtr &control_manager_diagnostics);
-  void updateUavState(const UavState_t &new_state);
-  void updateTrackerState(const TrackerState_t &new_state);
+  void updateUavState(const uav_state_t &new_state);
+  void updateTrackerState(const tracker_state_t &new_state);
 };
 //}
 
@@ -214,9 +177,9 @@ void StateMonitor::parseUavStatus(const mrs_msgs::UavStatus::ConstPtr &uav_statu
 
 void StateMonitor::parseHwApiStatus(const mrs_msgs::HwApiStatus::ConstPtr &hw_api_status) {
   if (!hw_api_status->armed){
-    updateUavState(DISARMED);
-  } else if (uav_state_ == DISARMED || hw_api_status->mode == "AUTO.LOITER" || tracker_state_ == NULL_TRACKER){
-    updateUavState(ARMED);
+    updateUavState(uav_state_t::DISARMED);
+  } else if (uav_state_ == uav_state_t::DISARMED || hw_api_status->mode == "AUTO.LOITER" || tracker_state_ == tracker_state_t::NULL_TRACKER){
+    updateUavState(uav_state_t::ARMED);
   }
 }
 
@@ -226,21 +189,21 @@ void StateMonitor::parseHwApiStatus(const mrs_msgs::HwApiStatus::ConstPtr &hw_ap
 
 void StateMonitor::parseControlManagerDiagnostics(const mrs_msgs::ControlManagerDiagnostics::ConstPtr &control_manager_diagnostics) {
   if (control_manager_diagnostics->active_tracker == "LandoffTracker"){
-    updateTrackerState(LANDOFF_TRACKER);
+    updateTrackerState(tracker_state_t::LANDOFF_TRACKER);
 
-    if (uav_state_ == ARMED){
-      updateUavState(TAKEOFF);
-    } else if (uav_state_ != TAKEOFF){
-      updateUavState(LANDING);
+    if (uav_state_ == uav_state_t::ARMED){
+      updateUavState(uav_state_t::TAKEOFF);
+    } else if (uav_state_ != uav_state_t::TAKEOFF){
+      updateUavState(uav_state_t::LANDING);
     }
 
-  } else if (control_manager_diagnostics->active_tracker == "NullTracker" && uav_state_ == LANDING){
-    updateTrackerState(NULL_TRACKER);
+  } else if (control_manager_diagnostics->active_tracker == "NullTracker" && uav_state_ == uav_state_t::LANDING){
+    updateTrackerState(tracker_state_t::NULL_TRACKER);
   } else if (control_manager_diagnostics->joystick_active){
-    updateUavState(MANUAL);
+    updateUavState(uav_state_t::MANUAL);
   } else if (control_manager_diagnostics->flying_normally){
-    updateTrackerState(AUTO_TRACKER);
-    updateUavState(AUTONOMOUS);
+    updateTrackerState(tracker_state_t::AUTO_TRACKER);
+    updateUavState(uav_state_t::AUTONOMOUS);
   }
 }
 
@@ -248,13 +211,13 @@ void StateMonitor::parseControlManagerDiagnostics(const mrs_msgs::ControlManager
 
 /* updateUavState() //{ */
 
-void StateMonitor::updateUavState(const UavState_t &new_state) {
+void StateMonitor::updateUavState(const uav_state_t &new_state) {
 
   if (uav_state_ == new_state){
     return;
   }
 
-  ROS_INFO("[StateMonitor]: SWITCHING UAV STATE: \"%s\" => \"%s\"", states::uav_state_names[uav_state_].c_str(), states::uav_state_names[new_state].c_str());
+  ROS_INFO("[StateMonitor]: SWITCHING UAV STATE: \"%s\" => \"%s\"", to_string(uav_state_), to_string(new_state));
   uav_state_ = new_state;
 }
 
@@ -262,13 +225,13 @@ void StateMonitor::updateUavState(const UavState_t &new_state) {
 
 /* updateTrackerState() //{ */
 
-void StateMonitor::updateTrackerState(const TrackerState_t &new_state) {
+void StateMonitor::updateTrackerState(const tracker_state_t &new_state) {
 
   if (tracker_state_ == new_state){
     return;
   }
 
-  ROS_INFO("[StateMonitor]: SWITCHING TRACKER STATE: \"%s\" => \"%s\"", states::tracker_state_names[tracker_state_].c_str(), states::tracker_state_names[new_state].c_str());
+  ROS_INFO("[StateMonitor]: SWITCHING TRACKER STATE: \"%s\" => \"%s\"", to_string(tracker_state_), to_string(new_state));
   tracker_state_ = new_state;
 }
 
