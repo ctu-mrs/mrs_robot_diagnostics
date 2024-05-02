@@ -14,7 +14,9 @@
                           (TAKEOFF)     \
                           (LANDING)     \
                           (MANUAL)      \
-                          (AUTONOMOUS)
+                          (HOVERING)    \
+                          (GOTO)        \
+                          (TRAJECTORY)
 
 namespace mrs_robot_diagnostics
 {
