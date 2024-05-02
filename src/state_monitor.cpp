@@ -33,8 +33,8 @@ private:
   ros::NodeHandle   nh_;
   std::atomic<bool> is_initialized_ = false;
 
-  uav_state_t uav_state_ = uav_state_t::UNKNOWN;
-  tracker_state_t tracker_state_ = tracker_state_t::NULL_TRACKER;
+  enum_helpers::enum_updater<uav_state_t> uav_state_ = {"UAV STATE", uav_state_t::UNKNOWN};
+  enum_helpers::enum_updater<tracker_state_t> tracker_state_ = {"TRACKER STATE", tracker_state_t::NULL_TRACKER};
 
   // | ---------------------- ROS subscribers --------------------- |
   mrs_lib::SubscribeHandler<std_msgs::Bool> sh_automatic_start_can_takeoff_;
@@ -53,8 +53,6 @@ private:
   void parseUavStatus(const mrs_msgs::UavStatus::ConstPtr &uav_status);
   void parseHwApiStatus(const mrs_msgs::HwApiStatus::ConstPtr &hw_api_status);
   void parseControlManagerDiagnostics(const mrs_msgs::ControlManagerDiagnostics::ConstPtr &control_manager_diagnostics);
-  void updateUavState(const uav_state_t &new_state);
-  void updateTrackerState(const tracker_state_t &new_state);
 };
 //}
 
@@ -177,9 +175,9 @@ void StateMonitor::parseUavStatus(const mrs_msgs::UavStatus::ConstPtr &uav_statu
 
 void StateMonitor::parseHwApiStatus(const mrs_msgs::HwApiStatus::ConstPtr &hw_api_status) {
   if (!hw_api_status->armed){
-    updateUavState(uav_state_t::DISARMED);
+    uav_state_.set(uav_state_t::DISARMED);
   } else if (uav_state_ == uav_state_t::DISARMED || hw_api_status->mode == "AUTO.LOITER" || tracker_state_ == tracker_state_t::NULL_TRACKER){
-    updateUavState(uav_state_t::ARMED);
+    uav_state_.set(uav_state_t::ARMED);
   }
 }
 
@@ -189,50 +187,22 @@ void StateMonitor::parseHwApiStatus(const mrs_msgs::HwApiStatus::ConstPtr &hw_ap
 
 void StateMonitor::parseControlManagerDiagnostics(const mrs_msgs::ControlManagerDiagnostics::ConstPtr &control_manager_diagnostics) {
   if (control_manager_diagnostics->active_tracker == "LandoffTracker"){
-    updateTrackerState(tracker_state_t::LANDOFF_TRACKER);
+    tracker_state_.set(tracker_state_t::LANDOFF_TRACKER);
 
     if (uav_state_ == uav_state_t::ARMED){
-      updateUavState(uav_state_t::TAKEOFF);
+      uav_state_.set(uav_state_t::TAKEOFF);
     } else if (uav_state_ != uav_state_t::TAKEOFF){
-      updateUavState(uav_state_t::LANDING);
+      uav_state_.set(uav_state_t::LANDING);
     }
 
   } else if (control_manager_diagnostics->active_tracker == "NullTracker" && uav_state_ == uav_state_t::LANDING){
-    updateTrackerState(tracker_state_t::NULL_TRACKER);
+    tracker_state_.set(tracker_state_t::NULL_TRACKER);
   } else if (control_manager_diagnostics->joystick_active){
-    updateUavState(uav_state_t::MANUAL);
+    uav_state_.set(uav_state_t::MANUAL);
   } else if (control_manager_diagnostics->flying_normally){
-    updateTrackerState(tracker_state_t::AUTO_TRACKER);
-    updateUavState(uav_state_t::AUTONOMOUS);
+    tracker_state_.set(tracker_state_t::AUTO_TRACKER);
+    uav_state_.set(uav_state_t::AUTONOMOUS);
   }
-}
-
-//}
-
-/* updateUavState() //{ */
-
-void StateMonitor::updateUavState(const uav_state_t &new_state) {
-
-  if (uav_state_ == new_state){
-    return;
-  }
-
-  ROS_INFO("[StateMonitor]: SWITCHING UAV STATE: \"%s\" => \"%s\"", to_string(uav_state_), to_string(new_state));
-  uav_state_ = new_state;
-}
-
-//}
-
-/* updateTrackerState() //{ */
-
-void StateMonitor::updateTrackerState(const tracker_state_t &new_state) {
-
-  if (tracker_state_ == new_state){
-    return;
-  }
-
-  ROS_INFO("[StateMonitor]: SWITCHING TRACKER STATE: \"%s\" => \"%s\"", to_string(tracker_state_), to_string(new_state));
-  tracker_state_ = new_state;
 }
 
 //}
