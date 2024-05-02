@@ -14,6 +14,8 @@
 #include <mrs_msgs/HwApiStatus.h>
 #include <mrs_msgs/ControlManagerDiagnostics.h>
 
+#include <mrs_msgs/UavDiagnostics.h>
+
 #include "mrs_robot_diagnostics/enums/uav_state.h"
 #include "mrs_robot_diagnostics/enums/tracker_state.h"
 
@@ -26,6 +28,9 @@ namespace mrs_robot_diagnostics
 /* class StateMonitor //{ */
 
 class StateMonitor : public nodelet::Nodelet {
+private:
+  using out_diags_msg_t = mrs_msgs::UavDiagnostics;
+
 public:
   virtual void onInit();
 
@@ -42,11 +47,12 @@ private:
   mrs_lib::SubscribeHandler<mrs_msgs::HwApiStatus> sh_hw_api_status_;
   mrs_lib::SubscribeHandler<mrs_msgs::ControlManagerDiagnostics> sh_control_manager_diagnostics_;
 
+  ros::Publisher pub_out_diags_;
+
   // | ----------------------- main timer ----------------------- |
 
   ros::Timer timer_main_;
   void       timerMain(const ros::TimerEvent &event);
-  double     _main_timer_rate_;
 
   // | ------------------ Additional functions ------------------ |
 
@@ -79,12 +85,14 @@ void StateMonitor::onInit() {
 
   param_loader.addYamlFileFromParam("config");
 
-  param_loader.loadParam("main_timer_rate", _main_timer_rate_);
+  const auto main_timer_rate = param_loader.loadParam2<double>("main_timer_rate");
 
   if (!param_loader.loadedSuccessfully()) {
     ROS_ERROR("[StateMonitor]: Could not load all parameters!");
     ros::shutdown();
   }
+
+  pub_out_diags_ = nh_.advertise<out_diags_msg_t>("diagnostics", 10);
 
   // | ----------------------- subscribers ---------------------- |
 
@@ -106,7 +114,7 @@ void StateMonitor::onInit() {
 
   // | ------------------------- timers ------------------------- |
 
-  timer_main_ = nh_.createTimer(ros::Rate(_main_timer_rate_), &StateMonitor::timerMain, this);
+  timer_main_ = nh_.createTimer(ros::Rate(main_timer_rate), &StateMonitor::timerMain, this);
 
   // | --------------------- finish the init -------------------- |
 
@@ -158,6 +166,10 @@ void StateMonitor::timerMain([[maybe_unused]] const ros::TimerEvent &event) {
     parseControlManagerDiagnostics(control_manager_diagnostics);
   }
 
+  out_diags_msg_t out_diags_msg;
+  out_diags_msg.stamp = ros::Time::now();
+  out_diags_msg.state = to_string(uav_state_.value());
+  pub_out_diags_.publish(out_diags_msg);
 }
 
 //}

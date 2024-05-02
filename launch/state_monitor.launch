@@ -6,9 +6,9 @@
   <arg name="custom_config" default="" />
 
   <!-- will it run using GNU debugger? -->
-  <arg name="DEBUG" default="false" />
-  <arg unless="$(arg DEBUG)" name="launch_prefix_debug" value=""/>
-  <arg     if="$(arg DEBUG)" name="launch_prefix_debug" value="debug_roslaunch"/>
+  <arg name="debug" default="false" />
+  <arg unless="$(arg debug)" name="launch_prefix_debug" value=""/>
+  <arg     if="$(arg debug)" name="launch_prefix_debug" value="debug_roslaunch"/>
 
   <!-- will it run as standalone nodelet or using a nodelet manager? -->
   <arg name="standalone" default="true" />
