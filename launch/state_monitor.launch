@@ -29,9 +29,11 @@
       <param if="$(eval not arg('custom_config') == '' and arg('custom_config')[0] == '/')" name="custom_config" value="$(arg custom_config)" />
       <param if="$(eval not arg('custom_config') == '' and not arg('custom_config')[0] == '/')" name="custom_config" value="$(env PWD)/$(arg custom_config)" />
 
-      <!-- Subscribers (note that the topic names will also be remapped using the namespace as a prefix) -->
+      <!-- Subscribers -->
+      <remap from="~uav_status_in" to="mrs_uav_status/uav_status" />
       <remap from="~hw_api_status_in" to="hw_api/status" />
       <remap from="~control_manager_diagnostics_in" to="control_manager/diagnostics" />
+      <remap from="~automatic_start_can_takeoff_in" to="automatic_start/can_takeoff" />
 
     </node>
 
