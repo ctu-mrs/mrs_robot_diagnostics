@@ -161,53 +161,56 @@ namespace mrs_robot_diagnostics
 
   // | -------------------- support functions ------------------- |
 
-  tracker_state_t parse_tracker_state(mrs_msgs::ControlManagerDiagnostics::ConstPtr control_manager_diagnostics)
+  tracker_state_t StateMonitor::parse_tracker_state(mrs_msgs::ControlManagerDiagnostics::ConstPtr control_manager_diagnostics)
   {
     if (control_manager_diagnostics->active_tracker == "NullTracker")
       return tracker_state_t::NULL_TRACKER;
 
-    if (control_manager_diagnostics->active_tracker == "LandoffTracker")
-      return tracker_state_t::LANDOFF_TRACKER;
-
-    if (control_manager_diagnostics->flying_normally)
-      return tracker_state_t::AUTO_TRACKER;
-
-    return tracker_state_t::UNKNOWN;
+    switch (control_manager_diagnostics->tracker_status.state)
+    {
+      case mrs_msgs::TrackerStatus::STATE_IDLE:       return tracker_state_t::NULL_TRACKER;
+      case mrs_msgs::TrackerStatus::STATE_TAKEOFF:    return tracker_state_t::TAKEOFF;
+      case mrs_msgs::TrackerStatus::STATE_HOVER:      return tracker_state_t::HOVER;
+      case mrs_msgs::TrackerStatus::STATE_REFERENCE:  return tracker_state_t::REFERENCE;
+      case mrs_msgs::TrackerStatus::STATE_TRAJECTORY: return tracker_state_t::TRAJECTORY;
+      case mrs_msgs::TrackerStatus::STATE_LAND:       return tracker_state_t::LAND;
+      default:                                        return tracker_state_t::UNKNOWN;
+    }
   }
 
-  uav_state_t parse_uav_state(mrs_msgs::HwApiStatus::ConstPtr hw_api_status, mrs_msgs::ControlManagerDiagnostics::ConstPtr control_manager_diagnostics, std_msgs::Bool::ConstPtr automatic_start_can_takeoff)
+  uav_state_t StateMonitor::parse_uav_state(mrs_msgs::HwApiStatus::ConstPtr hw_api_status, mrs_msgs::ControlManagerDiagnostics::ConstPtr control_manager_diagnostics, std_msgs::Bool::ConstPtr automatic_start_can_takeoff)
   {
     const bool hw_armed = hw_api_status->armed;
     // not armed
     if (!hw_armed)
       return uav_state_t::DISARMED;
 
+    // armed, flying in manual mode
+    const bool manual_mode = hw_api_status->mode == "MANUAL";
+    if (control_manager_diagnostics->joystick_active)
+      return uav_state_t::MANUAL;
+
     // armed, not flying
     const bool hw_loitering = hw_api_status->mode == "AUTO.LOITER";
     const auto tracker_state = parse_tracker_state(control_manager_diagnostics);
-    const bool tracker_none = tracker_state == tracker_state_t::NULL_TRACKER;
-    if (hw_loitering || tracker_none)
+    const bool null_tracker = tracker_state == tracker_state_t::NULL_TRACKER;
+    if (hw_loitering || null_tracker)
       return uav_state_t::ARMED;
 
-    // armed, flying, taking off
-    const bool tracker_landoff = tracker_state == tracker_state_t::LANDOFF_TRACKER;
-    if (tracker_landoff)
-      return uav_state_t::TAKEOFF;
+    // flying using the MRS system in RC joystick mode
+    if (control_manager_diagnostics->joystick_active)
+      return uav_state_t::RC_MODE;
 
-    // catch an invalid state
-    if (tracker_state != tracker_state_t::AUTO_TRACKER)
-      return uav_state_t::UNKNOWN;
-
-    // armed, flying autonomously, trajectory tracking
-    if (control_manager_diagnostics->tracker_status.tracking_trajectory)
-      return uav_state_t::TRAJECTORY;
-
-    // armed, flying autonomously, not tracking trajectory, but have goal
-    if (control_manager_diagnostics->tracker_status.have_goal)
-      return uav_state_t::GOTO;
-
-    // armed, flying autonomously, not tracking trajectory, no goal
-    return uav_state_t::HOVERING;
+    // unless the RC mode is active, just parse the tracker state
+    switch (tracker_state)
+    {
+      case tracker_state_t::TAKEOFF:      return uav_state_t::TAKEOFF;
+      case tracker_state_t::HOVER:        return uav_state_t::HOVER;
+      case tracker_state_t::REFERENCE:    return uav_state_t::GOTO;
+      case tracker_state_t::TRAJECTORY:   return uav_state_t::TRAJECTORY;
+      case tracker_state_t::LAND:         return uav_state_t::LAND;
+      default:                            return uav_state_t::UNKNOWN;
+    }
   }
 
   //}

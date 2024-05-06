@@ -10,8 +10,11 @@
 #define X_ENUM_BASE_TYPE  uint8_t
 #define X_ENUM_SEQ                            \
                           (NULL_TRACKER)      \
-                          (LANDOFF_TRACKER)   \
-                          (AUTO_TRACKER)      
+                          (TAKEOFF)           \
+                          (HOVER)             \
+                          (REFERENCE)         \
+                          (TRAJECTORY)        \
+                          (LAND)           
 
 namespace mrs_robot_diagnostics
 {

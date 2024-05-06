@@ -11,10 +11,11 @@
 #define X_ENUM_SEQ                      \
                           (DISARMED)    \
                           (ARMED)       \
-                          (TAKEOFF)     \
-                          (LANDING)     \
                           (MANUAL)      \
-                          (HOVERING)    \
+                          (TAKEOFF)     \
+                          (LAND)        \
+                          (RC_MODE)     \
+                          (HOVER)       \
                           (GOTO)        \
                           (TRAJECTORY)
 
