@@ -34,20 +34,27 @@
       <param if="$(eval not arg('custom_config') == '' and not arg('custom_config')[0] == '/')" name="custom_config" value="$(env PWD)/$(arg custom_config)" />
 
       <!-- Subscribers -->
-      <remap from="~uav_status_in" to="mrs_uav_status/uav_status" />
-      <remap from="~hw_api_status_in" to="hw_api/status" />
-      <remap from="~control_manager_diagnostics_in" to="control_manager/diagnostics" />
-      <remap from="~automatic_start_can_takeoff_in" to="automatic_start/can_takeoff" />
 
+      <remap from="~out/general_robot_info" to="~/general_robot_info" />
+      <remap from="~in/automatic_start_can_takeoff" to="automatic_start/can_takeoff" />
       <remap from="~in/battery_state" to="hw_api/battery_state" />
 
+      <remap from="~out/state_estimation_info" to="~/state_estimation_info" />
       <remap from="~in/estimation_diagnostics" to="estimation_manager/diagnostics" />
       <remap from="~in/hw_api_gnss" to="hw_api/gnss" />
       <remap from="~in/hw_api_mag_heading" to="hw_api/mag_heading" />
       <remap from="~in/control_manager_heading" to="control_manager/heading" />
 
-      <remap from="~out/general_robot_info" to="~/general_robot_info" />
-      <remap from="~out/state_estimation_info" to="~/state_estimation_info" />
+      <remap from="~out/collision_avoidance_info" to="~/collision_avoidance_info" />
+      <remap from="~in/mpc_tracker_diagnostics" to="control_manager/mpc_tracker/diagnostics" />
+
+      <remap from="~out/uav_info" to="~/uav_info" />
+      <remap from="~in/control_manager_diagnostics" to="control_manager/diagnostics" />
+      <remap from="~in/hw_api_status" to="hw_api/status" />
+      <remap from="~in/uav_status" to="mrs_uav_status/uav_status" />
+      <remap from="~in/mass_nominal" to="control_manager/mass_nominal" />
+      <remap from="~in/mass_estimate" to="control_manager/mass_estimate" />
+
 
     </node>
 

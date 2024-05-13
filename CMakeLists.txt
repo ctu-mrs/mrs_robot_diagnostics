@@ -26,6 +26,8 @@ add_message_files(DIRECTORY msg FILES
   BatteryState.msg
   GeneralRobotInfo.msg
   StateEstimationInfo.msg
+  CollisionAvoidanceInfo.msg
+  UavInfo.msg
   )
 
 ## Generate added messages and services with any dependencies listed here
