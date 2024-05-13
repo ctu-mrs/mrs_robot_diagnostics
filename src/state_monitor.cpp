@@ -5,6 +5,7 @@
 #include <nodelet/nodelet.h>
 
 #include <std_msgs/Bool.h>
+#include <sensor_msgs/BatteryState.h>
 
 #include <mrs_lib/param_loader.h>
 #include <mrs_lib/mutex.h>
@@ -15,6 +16,8 @@
 #include <mrs_msgs/ControlManagerDiagnostics.h>
 
 #include <mrs_msgs/UavDiagnostics.h>
+
+#include <mrs_robot_diagnostics/GeneralRobotInfo.h>
 
 #include "mrs_robot_diagnostics/enums/uav_state.h"
 #include "mrs_robot_diagnostics/enums/tracker_state.h"
@@ -37,10 +40,12 @@ namespace mrs_robot_diagnostics
 
   private:
     ros::NodeHandle nh_;
-    std::atomic<bool> is_initialized_ = false;
 
     enum_helpers::enum_updater<uav_state_t> uav_state_ = {"UAV STATE", uav_state_t::UNKNOWN};
     enum_helpers::enum_updater<tracker_state_t> tracker_state_ = {"TRACKER STATE", tracker_state_t::NULL_TRACKER};
+
+    std::string _robot_name_;
+    std::string _robot_type_;
 
     // | ---------------------- ROS subscribers --------------------- |
     mrs_lib::SubscribeHandler<std_msgs::Bool> sh_automatic_start_can_takeoff_;
@@ -48,7 +53,10 @@ namespace mrs_robot_diagnostics
     mrs_lib::SubscribeHandler<mrs_msgs::HwApiStatus> sh_hw_api_status_;
     mrs_lib::SubscribeHandler<mrs_msgs::ControlManagerDiagnostics> sh_control_manager_diagnostics_;
 
+    mrs_lib::SubscribeHandler<sensor_msgs::BatteryState> sh_battery_state_;
+
     ros::Publisher pub_out_diags_;
+    ros::Publisher pub_general_robot_info_;
 
     // | ----------------------- main timer ----------------------- |
 
@@ -58,7 +66,8 @@ namespace mrs_robot_diagnostics
     // | ------------------ Additional functions ------------------ |
 
     tracker_state_t parse_tracker_state(mrs_msgs::ControlManagerDiagnostics::ConstPtr control_manager_diagnostics);
-    uav_state_t parse_uav_state(mrs_msgs::HwApiStatus::ConstPtr hw_api_status, mrs_msgs::ControlManagerDiagnostics::ConstPtr control_manager_diagnostics, std_msgs::Bool::ConstPtr automatic_start_can_takeoff);
+    uav_state_t parse_uav_state(mrs_msgs::HwApiStatus::ConstPtr hw_api_status, mrs_msgs::ControlManagerDiagnostics::ConstPtr control_manager_diagnostics);
+    mrs_robot_diagnostics::GeneralRobotInfo parse_general_robot_info(sensor_msgs::BatteryState::ConstPtr battery_state);
   };
   //}
 
@@ -87,6 +96,8 @@ namespace mrs_robot_diagnostics
 
     param_loader.addYamlFileFromParam("config");
 
+    param_loader.loadParam("robot_name", _robot_name_);
+    param_loader.loadParam("robot_type", _robot_type_);
     const auto main_timer_rate = param_loader.loadParam2<double>("main_timer_rate");
 
     if (!param_loader.loadedSuccessfully())
@@ -96,6 +107,7 @@ namespace mrs_robot_diagnostics
     }
 
     pub_out_diags_ = nh_.advertise<out_diags_msg_t>("diagnostics", 10);
+    pub_general_robot_info_ = nh_.advertise<mrs_robot_diagnostics::GeneralRobotInfo>("general_robot_info", 10);
 
     // | ----------------------- subscribers ---------------------- |
 
@@ -112,6 +124,9 @@ namespace mrs_robot_diagnostics
     sh_hw_api_status_ = mrs_lib::SubscribeHandler<mrs_msgs::HwApiStatus>(shopts, "hw_api_status_in");
     sh_control_manager_diagnostics_ = mrs_lib::SubscribeHandler<mrs_msgs::ControlManagerDiagnostics>(shopts, "control_manager_diagnostics_in");
 
+    // | ------------------------ RobotInfo ----------------------- |
+    sh_battery_state_ = mrs_lib::SubscribeHandler<sensor_msgs::BatteryState>(shopts, "battery_state_in");
+
     shopts.no_message_timeout = mrs_lib::no_timeout;
     sh_automatic_start_can_takeoff_ = mrs_lib::SubscribeHandler<std_msgs::Bool>(shopts, "automatic_start_can_takeoff_in");
 
@@ -123,7 +138,6 @@ namespace mrs_robot_diagnostics
 
     ROS_INFO("[StateMonitor]: initialized");
     ROS_INFO("[StateMonitor]: --------------------");
-    is_initialized_ = true;
   }
 
   //}
@@ -137,35 +151,36 @@ namespace mrs_robot_diagnostics
   void StateMonitor::timerMain([[maybe_unused]] const ros::TimerEvent& event)
   {
 
-    if (!is_initialized_)
-      return;
+    if (sh_battery_state_.newMsg())
+      pub_general_robot_info_.publish(parse_general_robot_info(sh_battery_state_.getMsg()));
 
-    const bool got_all_messages = sh_hw_api_status_.hasMsg() && sh_control_manager_diagnostics_.hasMsg() && sh_automatic_start_can_takeoff_.hasMsg();
-    if (!got_all_messages)
-      return;
-
-    const auto hw_api_status = sh_hw_api_status_.getMsg();
-    const auto control_manager_diagnostics = sh_control_manager_diagnostics_.getMsg();
-    const auto automatic_start_can_takeoff = sh_automatic_start_can_takeoff_.getMsg();
-
-    const auto new_state = parse_uav_state(hw_api_status, control_manager_diagnostics, automatic_start_can_takeoff);
-    uav_state_.set(new_state);
-
-    out_diags_msg_t out_diags_msg;
-    out_diags_msg.stamp = ros::Time::now();
-    out_diags_msg.state = to_string(uav_state_.value());
-    pub_out_diags_.publish(out_diags_msg);
+    // | -------------------- UAV state parsing ------------------- |
+    const bool got_all_messages = sh_hw_api_status_.hasMsg() && sh_control_manager_diagnostics_.hasMsg();
+    if (got_all_messages)
+    {
+      const auto hw_api_status = sh_hw_api_status_.getMsg();
+      const auto control_manager_diagnostics = sh_control_manager_diagnostics_.getMsg();
+      
+      const auto new_state = parse_uav_state(hw_api_status, control_manager_diagnostics);
+      uav_state_.set(new_state);
+      
+      out_diags_msg_t out_diags_msg;
+      out_diags_msg.stamp = ros::Time::now();
+      out_diags_msg.state = to_string(uav_state_.value());
+      pub_out_diags_.publish(out_diags_msg);
+    }
   }
 
   //}
 
   // | -------------------- support functions ------------------- |
 
+  /* parse_tracker_state() method //{ */
   tracker_state_t StateMonitor::parse_tracker_state(mrs_msgs::ControlManagerDiagnostics::ConstPtr control_manager_diagnostics)
   {
     if (control_manager_diagnostics->active_tracker == "NullTracker")
       return tracker_state_t::NULL_TRACKER;
-
+  
     switch (control_manager_diagnostics->tracker_status.state)
     {
       case mrs_msgs::TrackerStatus::STATE_IDLE:       return tracker_state_t::NULL_TRACKER;
@@ -177,30 +192,32 @@ namespace mrs_robot_diagnostics
       default:                                        return tracker_state_t::UNKNOWN;
     }
   }
+  //}
 
-  uav_state_t StateMonitor::parse_uav_state(mrs_msgs::HwApiStatus::ConstPtr hw_api_status, mrs_msgs::ControlManagerDiagnostics::ConstPtr control_manager_diagnostics, std_msgs::Bool::ConstPtr automatic_start_can_takeoff)
+  /* parse_uav_state() method //{ */
+  uav_state_t StateMonitor::parse_uav_state(mrs_msgs::HwApiStatus::ConstPtr hw_api_status, mrs_msgs::ControlManagerDiagnostics::ConstPtr control_manager_diagnostics)
   {
     const bool hw_armed = hw_api_status->armed;
     // not armed
     if (!hw_armed)
       return uav_state_t::DISARMED;
-
+  
     // armed, flying in manual mode
     const bool manual_mode = hw_api_status->mode == "MANUAL";
     if (control_manager_diagnostics->joystick_active)
       return uav_state_t::MANUAL;
-
+  
     // armed, not flying
     const bool hw_loitering = hw_api_status->mode == "AUTO.LOITER";
     const auto tracker_state = parse_tracker_state(control_manager_diagnostics);
     const bool null_tracker = tracker_state == tracker_state_t::NULL_TRACKER;
     if (hw_loitering || null_tracker)
       return uav_state_t::ARMED;
-
+  
     // flying using the MRS system in RC joystick mode
     if (control_manager_diagnostics->joystick_active)
       return uav_state_t::RC_MODE;
-
+  
     // unless the RC mode is active, just parse the tracker state
     switch (tracker_state)
     {
@@ -212,9 +229,34 @@ namespace mrs_robot_diagnostics
       default:                            return uav_state_t::UNKNOWN;
     }
   }
-
   //}
 
+  /* parse_general_robot_info() method //{ */
+  mrs_robot_diagnostics::GeneralRobotInfo StateMonitor::parse_general_robot_info(sensor_msgs::BatteryState::ConstPtr battery_state)
+  {
+    mrs_robot_diagnostics::GeneralRobotInfo msg;
+    msg.robot_name = _robot_name_;
+    msg.robot_type = _robot_type_;
+  
+    msg.battery_state.voltage = battery_state->voltage;
+    msg.battery_state.percentage = battery_state->percentage;
+    msg.battery_state.wh_drained = -1.0;
+  
+    const bool autostart_running = sh_automatic_start_can_takeoff_.getNumPublishers();
+    const bool autostart_ready = sh_automatic_start_can_takeoff_.hasMsg() && sh_automatic_start_can_takeoff_.getMsg()->data;
+    const bool state_ok = uav_state_.value() == uav_state_t::DISARMED;
+    msg.ready_to_start = state_ok && autostart_running & autostart_ready;
+    if (is_flying(uav_state_.value()))
+      msg.problem_preventing_start = "UAV is in flight";
+    else if (!state_ok)
+      msg.problem_preventing_start = "UAV is not in DISARMED state";
+    else if (!autostart_running)
+      msg.problem_preventing_start = "Automatic start node is not running";
+    else if (!autostart_ready)
+      msg.problem_preventing_start = "Automatic start reports UAV not ready";
+    return msg;
+  }
+  //}
 
 }  // namespace mrs_robot_diagnostics
 

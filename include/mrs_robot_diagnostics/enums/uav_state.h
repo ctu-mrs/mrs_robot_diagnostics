@@ -24,4 +24,16 @@ namespace mrs_robot_diagnostics
 
 DEFINE_ENUM_WITH_CONVERSIONS(X_ENUM_NAME, X_ENUM_BASE_TYPE, X_ENUM_SEQ)
 
+  inline bool is_flying(uav_state_t uav_state)
+  {
+    switch (uav_state)
+    {
+      case uav_state_t::DISARMED:
+      case uav_state_t::ARMED:
+        return false;
+      default:
+        return true;
+    }
+  }
+
 }

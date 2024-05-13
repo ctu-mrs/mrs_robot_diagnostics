@@ -7,6 +7,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CATKIN_DEPENDENCIES
   cmake_modules
   roscpp
+  message_generation
   nodelet
   mrs_msgs
   mrs_lib
@@ -18,6 +19,19 @@ set(LIBRARIES
 
 find_package(catkin REQUIRED COMPONENTS
   ${CATKIN_DEPENDENCIES}
+  )
+
+# messages
+add_message_files(DIRECTORY msg FILES
+  BatteryState.msg
+  GeneralRobotInfo.msg
+  )
+
+## Generate added messages and services with any dependencies listed here
+generate_messages(DEPENDENCIES
+  std_msgs
+  geometry_msgs
+  sensor_msgs
   )
 
 catkin_package(
