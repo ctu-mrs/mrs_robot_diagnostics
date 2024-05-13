@@ -4,9 +4,10 @@
 #include <ros/ros.h>
 #include <nodelet/nodelet.h>
 
+#include <Eigen/Dense>
+
 #include <std_msgs/Bool.h>
 #include <sensor_msgs/BatteryState.h>
-#include <sensor_msgs/NavSatFix.h>
 
 #include <mrs_lib/param_loader.h>
 #include <mrs_lib/mutex.h>
@@ -17,6 +18,7 @@
 #include <mrs_msgs/ControlManagerDiagnostics.h>
 
 #include <mrs_msgs/EstimationDiagnostics.h>
+#include <sensor_msgs/NavSatFix.h>
 #include <mrs_msgs/Float64Stamped.h>
 
 #include <mrs_msgs/MpcTrackerDiagnostics.h>
@@ -26,11 +28,14 @@
 #include <mrs_msgs/UavDiagnostics.h>
 #include <std_msgs/Float64.h>
 
+#include <sensor_msgs/MagneticField.h>
+
 #include <mrs_robot_diagnostics/GeneralRobotInfo.h>
 #include <mrs_robot_diagnostics/StateEstimationInfo.h>
 #include <mrs_robot_diagnostics/ControlInfo.h>
 #include <mrs_robot_diagnostics/CollisionAvoidanceInfo.h>
 #include <mrs_robot_diagnostics/UavInfo.h>
+#include <mrs_robot_diagnostics/SystemHealthInfo.h>
 
 #include "mrs_robot_diagnostics/enums/uav_state.h"
 #include "mrs_robot_diagnostics/enums/tracker_state.h"
@@ -91,6 +96,10 @@ namespace mrs_robot_diagnostics
     mrs_lib::SubscribeHandler<std_msgs::Float64> sh_mass_nominal_;
     mrs_lib::SubscribeHandler<std_msgs::Float64> sh_mass_estimate_;
 
+    // | -------------------- SystemHealthInfo -------------------- |
+    ros::Publisher pub_system_health_info_;
+    mrs_lib::SubscribeHandler<sensor_msgs::MagneticField> sh_hw_api_magnetic_field_;
+
     // | ----------------------- main timer ----------------------- |
 
     ros::Timer timer_main_;
@@ -105,6 +114,7 @@ namespace mrs_robot_diagnostics
     mrs_robot_diagnostics::ControlInfo parse_control_info(mrs_msgs::ControlManagerDiagnostics::ConstPtr control_manager_diagnostics, std_msgs::Float64::ConstPtr thrust);
     mrs_robot_diagnostics::CollisionAvoidanceInfo parse_collision_avoidance_info(mrs_msgs::MpcTrackerDiagnostics::ConstPtr mpc_tracker_diagnostics);
     mrs_robot_diagnostics::UavInfo parse_uav_info(mrs_msgs::HwApiStatus::ConstPtr hw_api_status, mrs_msgs::UavStatus::ConstPtr uav_status, std_msgs::Float64::ConstPtr mass_nominal, std_msgs::Float64::ConstPtr mass_estimate, uav_state_t uav_state);
+    mrs_robot_diagnostics::SystemHealthInfo parse_system_health_info(mrs_msgs::UavStatus::ConstPtr uav_status, sensor_msgs::NavSatFix::ConstPtr gnss, sensor_msgs::MagneticField::ConstPtr magnetic_field);
   };
   //}
 
@@ -184,6 +194,10 @@ namespace mrs_robot_diagnostics
     sh_mass_nominal_ = mrs_lib::SubscribeHandler<std_msgs::Float64>(shopts, "in/mass_nominal");
     sh_mass_estimate_ = mrs_lib::SubscribeHandler<std_msgs::Float64>(shopts, "in/mass_estimate");
 
+    // | -------------------- SystemHealthInfo -------------------- |
+    pub_system_health_info_ = nh_.advertise<mrs_robot_diagnostics::SystemHealthInfo>("out/system_health_info", 10);
+    sh_hw_api_magnetic_field_ = mrs_lib::SubscribeHandler<sensor_msgs::MagneticField>(shopts, "in/hw_api_magnetic_field", mrs_lib::no_timeout);
+
     // | ------------------------- timers ------------------------- |
 
     timer_main_ = nh_.createTimer(ros::Rate(main_timer_rate), &StateMonitor::timerMain, this);
@@ -204,13 +218,18 @@ namespace mrs_robot_diagnostics
 
   void StateMonitor::timerMain([[maybe_unused]] const ros::TimerEvent& event)
   {
+    const bool new_uav_status = sh_uav_status_.newMsg();
+    const auto uav_status = new_uav_status ? sh_uav_status_.getMsg() : nullptr;
 
-    // | ---------- Output message paring and publishing ---------- |
+    const bool new_hw_api_gnss = sh_hw_api_gnss_.newMsg();
+    const auto hw_api_gnss = new_hw_api_gnss ? sh_hw_api_gnss_.getMsg() : nullptr;
+
+    // | ---------- Output message parsing and publishing ---------- |
     if (sh_battery_state_.newMsg())
       pub_general_robot_info_.publish(parse_general_robot_info(sh_battery_state_.getMsg()));
 
-    if (sh_estimation_diagnostics_.newMsg() && sh_control_manager_heading_.newMsg() && sh_hw_api_gnss_.newMsg() && sh_hw_api_mag_heading_.newMsg())
-      pub_state_estimation_info_.publish(parse_state_estimation_info(sh_estimation_diagnostics_.getMsg(), sh_control_manager_heading_.getMsg(), sh_hw_api_gnss_.getMsg(), sh_hw_api_mag_heading_.getMsg()));
+    if (sh_estimation_diagnostics_.newMsg() && sh_control_manager_heading_.newMsg() && new_hw_api_gnss && sh_hw_api_mag_heading_.newMsg())
+      pub_state_estimation_info_.publish(parse_state_estimation_info(sh_estimation_diagnostics_.getMsg(), sh_control_manager_heading_.getMsg(), hw_api_gnss, sh_hw_api_mag_heading_.getMsg()));
 
     if (sh_control_manager_diagnostics_.newMsg() && sh_control_manager_thrust_.newMsg())
       pub_control_info_.publish(parse_control_info(sh_control_manager_diagnostics_.getMsg(), sh_control_manager_thrust_.getMsg()));
@@ -218,8 +237,13 @@ namespace mrs_robot_diagnostics
     if (sh_mpc_tracker_diagnostics_.newMsg())
       pub_collision_avoidance_info_.publish(parse_collision_avoidance_info(sh_mpc_tracker_diagnostics_.getMsg()));
 
-    if (sh_hw_api_status_.newMsg() && sh_uav_status_.newMsg() && sh_mass_nominal_.hasMsg() && sh_mass_estimate_.newMsg())
-      pub_uav_info_.publish(parse_uav_info(sh_hw_api_status_.getMsg(), sh_uav_status_.getMsg(), sh_mass_nominal_.getMsg(), sh_mass_estimate_.getMsg(), uav_state_.value()));
+    if (sh_hw_api_status_.newMsg() && new_uav_status && sh_mass_nominal_.hasMsg() && sh_mass_estimate_.newMsg())
+      pub_uav_info_.publish(parse_uav_info(sh_hw_api_status_.getMsg(), uav_status, sh_mass_nominal_.getMsg(), sh_mass_estimate_.getMsg(), uav_state_.value()));
+
+    // to avoid warnings
+    const auto hw_api_magnetic_field = sh_hw_api_magnetic_field_.hasMsg() ? sh_hw_api_magnetic_field_.getMsg() : nullptr;
+    if (new_uav_status && new_hw_api_gnss)
+      pub_system_health_info_.publish(parse_system_health_info(uav_status, hw_api_gnss, hw_api_magnetic_field));
 
     // | -------------------- UAV state parsing ------------------- |
     const bool got_all_messages = sh_hw_api_status_.hasMsg() && sh_control_manager_diagnostics_.hasMsg();
@@ -241,6 +265,15 @@ namespace mrs_robot_diagnostics
   //}
 
   // | -------------------- support functions ------------------- |
+
+Eigen::Matrix3d cov2eigen(const boost::array<double, 9>& msg_cov)
+{
+  Eigen::Matrix3d cov;
+  for (int r = 0; r < 3; r++)
+    for (int c = 0; c < 3; c++)
+      cov(r, c) = msg_cov.at(r + 3*c);
+  return cov;
+}
 
   /* parse_tracker_state() method //{ */
   tracker_state_t StateMonitor::parse_tracker_state(mrs_msgs::ControlManagerDiagnostics::ConstPtr control_manager_diagnostics)
@@ -403,6 +436,59 @@ mrs_robot_diagnostics::UavInfo StateMonitor::parse_uav_info(mrs_msgs::HwApiStatu
   return msg;
 }
 
+//}
+
+/* parse_system_health_info() method //{ */
+mrs_robot_diagnostics::SystemHealthInfo StateMonitor::parse_system_health_info(mrs_msgs::UavStatus::ConstPtr uav_status, sensor_msgs::NavSatFix::ConstPtr gnss, sensor_msgs::MagneticField::ConstPtr magnetic_field)
+{
+  mrs_robot_diagnostics::SystemHealthInfo msg;
+
+  msg.cpu_load = uav_status->cpu_load;
+  msg.free_ram = uav_status->free_ram;
+  msg.total_ram = uav_status->total_ram;
+  msg.free_hdd = uav_status->free_hdd;
+  const size_t n = std::min(uav_status->node_cpu_loads.cpu_loads.size(), uav_status->node_cpu_loads.node_names.size());
+  for (int it = 0; it < n; it++)
+  {
+    mrs_robot_diagnostics::NodeCpuLoad node_cpu_load;
+    node_cpu_load.node_name = uav_status->node_cpu_loads.node_names.at(it);
+    node_cpu_load.cpu_load = uav_status->node_cpu_loads.cpu_loads.at(it);
+    msg.node_cpu_loads.push_back(node_cpu_load);
+  }
+
+  msg.hw_api_rate = uav_status->hw_api_hz;
+  msg.control_manager_rate = uav_status->control_manager_diag_hz;
+  msg.state_estimation_rate = uav_status->odom_hz;
+
+  {
+    const Eigen::Matrix3d cov = cov2eigen(gnss->position_covariance);
+    msg.gnss_uncertainty = std::cbrt(cov.determinant());
+  }
+
+  if (magnetic_field == nullptr)
+  {
+    msg.mag_strength = -1;
+    msg.mag_uncertainty = -1;
+  }
+  else
+  {
+    const Eigen::Vector3d field(magnetic_field->magnetic_field.x, magnetic_field->magnetic_field.y, magnetic_field->magnetic_field.z);
+    msg.mag_strength = field.norm();
+    const Eigen::Matrix3d cov = cov2eigen(magnetic_field->magnetic_field_covariance);
+    msg.mag_uncertainty = std::cbrt(cov.determinant());
+  }
+
+  //TODO: required sensors from estimation manager
+  mrs_robot_diagnostics::SensorStatus ss_msg;
+  ss_msg.name = "NOT_IMPLEMENTED";
+  ss_msg.ready = false;
+  ss_msg.rate = -1;
+  ss_msg.status = "NOT_IMPLEMENTED";
+
+  msg.required_sensors.push_back(ss_msg);
+
+  return msg;
+}
 //}
 
 }  // namespace mrs_robot_diagnostics

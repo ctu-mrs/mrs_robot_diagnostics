@@ -25,6 +25,7 @@ find_package(catkin REQUIRED COMPONENTS
 add_message_files(DIRECTORY msg FILES
   BatteryState.msg
   SensorStatus.msg
+  NodeCpuLoad.msg
 
   GeneralRobotInfo.msg
   StateEstimationInfo.msg
