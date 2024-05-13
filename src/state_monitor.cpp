@@ -6,6 +6,7 @@
 
 #include <std_msgs/Bool.h>
 #include <sensor_msgs/BatteryState.h>
+#include <sensor_msgs/NavSatFix.h>
 
 #include <mrs_lib/param_loader.h>
 #include <mrs_lib/mutex.h>
@@ -15,9 +16,13 @@
 #include <mrs_msgs/HwApiStatus.h>
 #include <mrs_msgs/ControlManagerDiagnostics.h>
 
+#include <mrs_msgs/EstimationDiagnostics.h>
+#include <mrs_msgs/Float64Stamped.h>
+
 #include <mrs_msgs/UavDiagnostics.h>
 
 #include <mrs_robot_diagnostics/GeneralRobotInfo.h>
+#include <mrs_robot_diagnostics/StateEstimationInfo.h>
 
 #include "mrs_robot_diagnostics/enums/uav_state.h"
 #include "mrs_robot_diagnostics/enums/tracker_state.h"
@@ -53,10 +58,18 @@ namespace mrs_robot_diagnostics
     mrs_lib::SubscribeHandler<mrs_msgs::HwApiStatus> sh_hw_api_status_;
     mrs_lib::SubscribeHandler<mrs_msgs::ControlManagerDiagnostics> sh_control_manager_diagnostics_;
 
+    // | -------------------- GeneralRobotInfo -------------------- |
     mrs_lib::SubscribeHandler<sensor_msgs::BatteryState> sh_battery_state_;
+
+    // | ------------------- StateEstimationInfo ------------------ |
+    mrs_lib::SubscribeHandler<mrs_msgs::EstimationDiagnostics> sh_estimation_diagnostics_;
+    mrs_lib::SubscribeHandler<sensor_msgs::NavSatFix> sh_hw_api_gnss_;
+    mrs_lib::SubscribeHandler<mrs_msgs::Float64Stamped> sh_control_manager_heading_;
+    mrs_lib::SubscribeHandler<mrs_msgs::Float64Stamped> sh_hw_api_mag_heading_;
 
     ros::Publisher pub_out_diags_;
     ros::Publisher pub_general_robot_info_;
+    ros::Publisher pub_state_estimation_info_;
 
     // | ----------------------- main timer ----------------------- |
 
@@ -68,6 +81,7 @@ namespace mrs_robot_diagnostics
     tracker_state_t parse_tracker_state(mrs_msgs::ControlManagerDiagnostics::ConstPtr control_manager_diagnostics);
     uav_state_t parse_uav_state(mrs_msgs::HwApiStatus::ConstPtr hw_api_status, mrs_msgs::ControlManagerDiagnostics::ConstPtr control_manager_diagnostics);
     mrs_robot_diagnostics::GeneralRobotInfo parse_general_robot_info(sensor_msgs::BatteryState::ConstPtr battery_state);
+    mrs_robot_diagnostics::StateEstimationInfo parse_state_estimation_info(mrs_msgs::EstimationDiagnostics::ConstPtr estimation_diagnostics, mrs_msgs::Float64Stamped::ConstPtr local_heading, sensor_msgs::NavSatFix::ConstPtr global_position, mrs_msgs::Float64Stamped::ConstPtr global_heading);
   };
   //}
 
@@ -107,7 +121,8 @@ namespace mrs_robot_diagnostics
     }
 
     pub_out_diags_ = nh_.advertise<out_diags_msg_t>("diagnostics", 10);
-    pub_general_robot_info_ = nh_.advertise<mrs_robot_diagnostics::GeneralRobotInfo>("general_robot_info", 10);
+    pub_general_robot_info_ = nh_.advertise<mrs_robot_diagnostics::GeneralRobotInfo>("out/general_robot_info", 10);
+    pub_state_estimation_info_ = nh_.advertise<mrs_robot_diagnostics::StateEstimationInfo>("out/state_estimation_info", 10);
 
     // | ----------------------- subscribers ---------------------- |
 
@@ -125,7 +140,13 @@ namespace mrs_robot_diagnostics
     sh_control_manager_diagnostics_ = mrs_lib::SubscribeHandler<mrs_msgs::ControlManagerDiagnostics>(shopts, "control_manager_diagnostics_in");
 
     // | ------------------------ RobotInfo ----------------------- |
-    sh_battery_state_ = mrs_lib::SubscribeHandler<sensor_msgs::BatteryState>(shopts, "battery_state_in");
+    sh_battery_state_ = mrs_lib::SubscribeHandler<sensor_msgs::BatteryState>(shopts, "in/battery_state");
+
+    // | ------------------- StateEstimationInfo ------------------ |
+    sh_estimation_diagnostics_ = mrs_lib::SubscribeHandler<mrs_msgs::EstimationDiagnostics>(shopts, "in/estimation_diagnostics");
+    sh_hw_api_gnss_ = mrs_lib::SubscribeHandler<sensor_msgs::NavSatFix>(shopts, "in/hw_api_gnss");
+    sh_control_manager_heading_ = mrs_lib::SubscribeHandler<mrs_msgs::Float64Stamped>(shopts, "in/control_manager_heading");
+    sh_hw_api_mag_heading_ = mrs_lib::SubscribeHandler<mrs_msgs::Float64Stamped>(shopts, "in/hw_api_mag_heading");
 
     shopts.no_message_timeout = mrs_lib::no_timeout;
     sh_automatic_start_can_takeoff_ = mrs_lib::SubscribeHandler<std_msgs::Bool>(shopts, "automatic_start_can_takeoff_in");
@@ -153,6 +174,9 @@ namespace mrs_robot_diagnostics
 
     if (sh_battery_state_.newMsg())
       pub_general_robot_info_.publish(parse_general_robot_info(sh_battery_state_.getMsg()));
+
+    if (sh_estimation_diagnostics_.newMsg() && sh_control_manager_heading_.newMsg() && sh_hw_api_gnss_.newMsg() && sh_hw_api_mag_heading_.newMsg())
+      pub_state_estimation_info_.publish(parse_state_estimation_info(sh_estimation_diagnostics_.getMsg(), sh_control_manager_heading_.getMsg(), sh_hw_api_gnss_.getMsg(), sh_hw_api_mag_heading_.getMsg()));
 
     // | -------------------- UAV state parsing ------------------- |
     const bool got_all_messages = sh_hw_api_status_.hasMsg() && sh_control_manager_diagnostics_.hasMsg();
@@ -257,6 +281,36 @@ namespace mrs_robot_diagnostics
     return msg;
   }
   //}
+
+/* parseStateEstimationInfo() //{ */
+
+mrs_robot_diagnostics::StateEstimationInfo StateMonitor::parse_state_estimation_info(mrs_msgs::EstimationDiagnostics::ConstPtr estimation_diagnostics, mrs_msgs::Float64Stamped::ConstPtr local_heading, sensor_msgs::NavSatFix::ConstPtr global_position, mrs_msgs::Float64Stamped::ConstPtr global_heading)
+{
+  mrs_robot_diagnostics::StateEstimationInfo msg;
+  msg.header = estimation_diagnostics->header;
+
+  msg.local_pose.position = estimation_diagnostics->pose.position;
+  msg.local_pose.heading = local_heading->value;
+  msg.above_ground_level_height = estimation_diagnostics->agl_height;
+
+  msg.global_pose.position.x = global_position->latitude;
+  msg.global_pose.position.y = global_position->longitude;
+  msg.global_pose.position.z = global_position->altitude;
+  msg.global_pose.heading = global_heading->value;
+
+  msg.velocity = estimation_diagnostics->velocity;
+  msg.acceleration = estimation_diagnostics->acceleration;
+
+  if (!estimation_diagnostics->running_state_estimators.empty())
+    msg.current_estimator = estimation_diagnostics->running_state_estimators.at(0);
+
+  msg.running_estimators = estimation_diagnostics->running_state_estimators;
+  msg.switchable_estimators = estimation_diagnostics->switchable_state_estimators;
+
+  return msg;
+}
+
+//}
 
 }  // namespace mrs_robot_diagnostics
 

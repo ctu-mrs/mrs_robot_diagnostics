@@ -25,6 +25,7 @@ find_package(catkin REQUIRED COMPONENTS
 add_message_files(DIRECTORY msg FILES
   BatteryState.msg
   GeneralRobotInfo.msg
+  StateEstimationInfo.msg
   )
 
 ## Generate added messages and services with any dependencies listed here
@@ -32,6 +33,7 @@ generate_messages(DEPENDENCIES
   std_msgs
   geometry_msgs
   sensor_msgs
+  mrs_msgs
   )
 
 catkin_package(

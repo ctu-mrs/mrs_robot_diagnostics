@@ -39,7 +39,15 @@ a <!-- defines name of the namespace -->
       <remap from="~control_manager_diagnostics_in" to="control_manager/diagnostics" />
       <remap from="~automatic_start_can_takeoff_in" to="automatic_start/can_takeoff" />
 
-      <remap from="~battery_state_in" to="hw_api/battery_state" />
+      <remap from="~in/battery_state" to="hw_api/battery_state" />
+
+      <remap from="~in/estimation_diagnostics" to="estimation_manager/diagnostics" />
+      <remap from="~in/hw_api_gnss" to="hw_api/gnss" />
+      <remap from="~in/hw_api_mag_heading" to="hw_api/mag_heading" />
+      <remap from="~in/control_manager_heading" to="control_manager/heading" />
+
+      <remap from="~out/general_robot_info" to="~/general_robot_info" />
+      <remap from="~out/state_estimation_info" to="~/state_estimation_info" />
 
     </node>
 
