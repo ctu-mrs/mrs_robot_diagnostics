@@ -24,10 +24,14 @@ find_package(catkin REQUIRED COMPONENTS
 # messages
 add_message_files(DIRECTORY msg FILES
   BatteryState.msg
+  SensorStatus.msg
+
   GeneralRobotInfo.msg
   StateEstimationInfo.msg
+  ControlInfo.msg
   CollisionAvoidanceInfo.msg
   UavInfo.msg
+  SystemHealthInfo.msg
   )
 
 ## Generate added messages and services with any dependencies listed here

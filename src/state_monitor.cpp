@@ -28,6 +28,7 @@
 
 #include <mrs_robot_diagnostics/GeneralRobotInfo.h>
 #include <mrs_robot_diagnostics/StateEstimationInfo.h>
+#include <mrs_robot_diagnostics/ControlInfo.h>
 #include <mrs_robot_diagnostics/CollisionAvoidanceInfo.h>
 #include <mrs_robot_diagnostics/UavInfo.h>
 
@@ -74,13 +75,17 @@ namespace mrs_robot_diagnostics
     mrs_lib::SubscribeHandler<mrs_msgs::Float64Stamped> sh_control_manager_heading_;
     mrs_lib::SubscribeHandler<mrs_msgs::Float64Stamped> sh_hw_api_mag_heading_;
 
+    // | ----------------------- ControlInfo ---------------------- |
+    ros::Publisher pub_control_info_;
+    mrs_lib::SubscribeHandler<mrs_msgs::ControlManagerDiagnostics> sh_control_manager_diagnostics_;
+    mrs_lib::SubscribeHandler<std_msgs::Float64> sh_control_manager_thrust_;
+
     // | ----------------- CollisionAvoidanceInfo ----------------- |
     ros::Publisher pub_collision_avoidance_info_;
     mrs_lib::SubscribeHandler<mrs_msgs::MpcTrackerDiagnostics> sh_mpc_tracker_diagnostics_;
 
     // | ------------------------- UavInfo ------------------------ |
     ros::Publisher pub_uav_info_;
-    mrs_lib::SubscribeHandler<mrs_msgs::ControlManagerDiagnostics> sh_control_manager_diagnostics_;
     mrs_lib::SubscribeHandler<mrs_msgs::HwApiStatus> sh_hw_api_status_;
     mrs_lib::SubscribeHandler<mrs_msgs::UavStatus> sh_uav_status_;
     mrs_lib::SubscribeHandler<std_msgs::Float64> sh_mass_nominal_;
@@ -97,6 +102,7 @@ namespace mrs_robot_diagnostics
     uav_state_t parse_uav_state(mrs_msgs::HwApiStatus::ConstPtr hw_api_status, mrs_msgs::ControlManagerDiagnostics::ConstPtr control_manager_diagnostics);
     mrs_robot_diagnostics::GeneralRobotInfo parse_general_robot_info(sensor_msgs::BatteryState::ConstPtr battery_state);
     mrs_robot_diagnostics::StateEstimationInfo parse_state_estimation_info(mrs_msgs::EstimationDiagnostics::ConstPtr estimation_diagnostics, mrs_msgs::Float64Stamped::ConstPtr local_heading, sensor_msgs::NavSatFix::ConstPtr global_position, mrs_msgs::Float64Stamped::ConstPtr global_heading);
+    mrs_robot_diagnostics::ControlInfo parse_control_info(mrs_msgs::ControlManagerDiagnostics::ConstPtr control_manager_diagnostics, std_msgs::Float64::ConstPtr thrust);
     mrs_robot_diagnostics::CollisionAvoidanceInfo parse_collision_avoidance_info(mrs_msgs::MpcTrackerDiagnostics::ConstPtr mpc_tracker_diagnostics);
     mrs_robot_diagnostics::UavInfo parse_uav_info(mrs_msgs::HwApiStatus::ConstPtr hw_api_status, mrs_msgs::UavStatus::ConstPtr uav_status, std_msgs::Float64::ConstPtr mass_nominal, std_msgs::Float64::ConstPtr mass_estimate, uav_state_t uav_state);
   };
@@ -162,13 +168,17 @@ namespace mrs_robot_diagnostics
     sh_control_manager_heading_ = mrs_lib::SubscribeHandler<mrs_msgs::Float64Stamped>(shopts, "in/control_manager_heading");
     sh_hw_api_mag_heading_ = mrs_lib::SubscribeHandler<mrs_msgs::Float64Stamped>(shopts, "in/hw_api_mag_heading");
 
+    // | ----------------------- ControlInfo ---------------------- |
+    pub_control_info_ = nh_.advertise<mrs_robot_diagnostics::ControlInfo>("out/control_info", 10);
+    sh_control_manager_diagnostics_ = mrs_lib::SubscribeHandler<mrs_msgs::ControlManagerDiagnostics>(shopts, "in/control_manager_diagnostics");
+    sh_control_manager_thrust_ = mrs_lib::SubscribeHandler<std_msgs::Float64>(shopts, "in/control_manager_thrust");
+
     // | ----------------- CollisionAvoidanceInfo ----------------- |
     pub_collision_avoidance_info_ = nh_.advertise<mrs_robot_diagnostics::CollisionAvoidanceInfo>("out/collision_avoidance_info", 10);
     sh_mpc_tracker_diagnostics_ = mrs_lib::SubscribeHandler<mrs_msgs::MpcTrackerDiagnostics>(shopts, "in/mpc_tracker_diagnostics");
 
     // | ------------------------- UavInfo ------------------------ |
     pub_uav_info_ = nh_.advertise<mrs_robot_diagnostics::UavInfo>("out/uav_info", 10);
-    sh_control_manager_diagnostics_ = mrs_lib::SubscribeHandler<mrs_msgs::ControlManagerDiagnostics>(shopts, "in/control_manager_diagnostics");
     sh_hw_api_status_ = mrs_lib::SubscribeHandler<mrs_msgs::HwApiStatus>(shopts, "in/hw_api_status");
     sh_uav_status_ = mrs_lib::SubscribeHandler<mrs_msgs::UavStatus>(shopts, "in/uav_status");
     sh_mass_nominal_ = mrs_lib::SubscribeHandler<std_msgs::Float64>(shopts, "in/mass_nominal");
@@ -202,6 +212,9 @@ namespace mrs_robot_diagnostics
     if (sh_estimation_diagnostics_.newMsg() && sh_control_manager_heading_.newMsg() && sh_hw_api_gnss_.newMsg() && sh_hw_api_mag_heading_.newMsg())
       pub_state_estimation_info_.publish(parse_state_estimation_info(sh_estimation_diagnostics_.getMsg(), sh_control_manager_heading_.getMsg(), sh_hw_api_gnss_.getMsg(), sh_hw_api_mag_heading_.getMsg()));
 
+    if (sh_control_manager_diagnostics_.newMsg() && sh_control_manager_thrust_.newMsg())
+      pub_control_info_.publish(parse_control_info(sh_control_manager_diagnostics_.getMsg(), sh_control_manager_thrust_.getMsg()));
+
     if (sh_mpc_tracker_diagnostics_.newMsg())
       pub_collision_avoidance_info_.publish(parse_collision_avoidance_info(sh_mpc_tracker_diagnostics_.getMsg()));
 
@@ -212,7 +225,7 @@ namespace mrs_robot_diagnostics
     const bool got_all_messages = sh_hw_api_status_.hasMsg() && sh_control_manager_diagnostics_.hasMsg();
     if (got_all_messages)
     {
-      // this getMsg() must be after the newMsg() check above (otherwise, it will never succeed)
+      // these getMsg() must be after the newMsg() checks above (otherwise, it will never succeed)
       const auto hw_api_status = sh_hw_api_status_.getMsg();
       const auto control_manager_diagnostics = sh_control_manager_diagnostics_.getMsg();
       
@@ -312,7 +325,7 @@ namespace mrs_robot_diagnostics
   }
   //}
 
-/* parseStateEstimationInfo() //{ */
+/* parse_state_estimation_info() //{ */
 
 mrs_robot_diagnostics::StateEstimationInfo StateMonitor::parse_state_estimation_info(mrs_msgs::EstimationDiagnostics::ConstPtr estimation_diagnostics, mrs_msgs::Float64Stamped::ConstPtr local_heading, sensor_msgs::NavSatFix::ConstPtr global_position, mrs_msgs::Float64Stamped::ConstPtr global_heading)
 {
@@ -336,6 +349,23 @@ mrs_robot_diagnostics::StateEstimationInfo StateMonitor::parse_state_estimation_
 
   msg.running_estimators = estimation_diagnostics->running_state_estimators;
   msg.switchable_estimators = estimation_diagnostics->switchable_state_estimators;
+
+  return msg;
+}
+
+//}
+
+/* parse_control_info() //{ */
+
+mrs_robot_diagnostics::ControlInfo StateMonitor::parse_control_info(mrs_msgs::ControlManagerDiagnostics::ConstPtr control_manager_diagnostics, std_msgs::Float64::ConstPtr thrust)
+{
+  mrs_robot_diagnostics::ControlInfo msg;
+
+  msg.active_controller = control_manager_diagnostics->active_controller;
+  msg.available_controllers = control_manager_diagnostics->available_controllers;
+  msg.active_tracker = control_manager_diagnostics->active_tracker;
+  msg.available_trackers = control_manager_diagnostics->available_trackers;
+  msg.thrust = thrust->data;
 
   return msg;
 }

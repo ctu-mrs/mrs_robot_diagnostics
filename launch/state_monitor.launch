@@ -45,11 +45,14 @@
       <remap from="~in/hw_api_mag_heading" to="hw_api/mag_heading" />
       <remap from="~in/control_manager_heading" to="control_manager/heading" />
 
+      <remap from="~out/control_info" to="~/control_info" />
+      <remap from="~in/control_manager_diagnostics" to="control_manager/diagnostics" />
+      <remap from="~in/control_manager_thrust" to="control_manager/thrust" />
+
       <remap from="~out/collision_avoidance_info" to="~/collision_avoidance_info" />
       <remap from="~in/mpc_tracker_diagnostics" to="control_manager/mpc_tracker/diagnostics" />
 
       <remap from="~out/uav_info" to="~/uav_info" />
-      <remap from="~in/control_manager_diagnostics" to="control_manager/diagnostics" />
       <remap from="~in/hw_api_status" to="hw_api/status" />
       <remap from="~in/uav_status" to="mrs_uav_status/uav_status" />
       <remap from="~in/mass_nominal" to="control_manager/mass_nominal" />
