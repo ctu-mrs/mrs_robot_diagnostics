@@ -44,6 +44,7 @@ generate_messages(DEPENDENCIES
   )
 
 catkin_package(
+  INCLUDE_DIRS include
   LIBRARIES ${LIBRARIES}
   CATKIN_DEPENDS ${CATKIN_DEPENDENCIES}
   )
@@ -82,6 +83,10 @@ install(TARGETS ${LIBRARIES}
 
 install(DIRECTORY launch config
   DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
+  )
+
+install(DIRECTORY include/mrs_robot_diagnostics/
+  DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION}
   )
 
 install(FILES nodelets.xml
