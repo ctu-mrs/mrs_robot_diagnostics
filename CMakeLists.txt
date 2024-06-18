@@ -3,6 +3,7 @@ project(mrs_robot_diagnostics)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+add_definitions(-save-temps)
 
 set(CATKIN_DEPENDENCIES
   cmake_modules

@@ -61,7 +61,6 @@ namespace mrs_robot_diagnostics
     ros::NodeHandle nh_;
 
     enum_helpers::enum_updater<uav_state_t> uav_state_ = {"UAV STATE", uav_state_t::UNKNOWN};
-    enum_helpers::enum_updater<tracker_state_t> tracker_state_ = {"TRACKER STATE", tracker_state_t::NULL_TRACKER};
 
     std::string _robot_name_;
     std::string _robot_type_;

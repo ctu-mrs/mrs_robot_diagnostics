@@ -61,6 +61,8 @@
       <remap from="~out/system_health_info" to="~/system_health_info" />
       <remap from="~in/hw_api_magnetic_field" to="hw_api/magnetic_field" />
 
+      <remap from="~out/uav_state" to="~/uav_state" />
+
     </node>
 
   </group>
