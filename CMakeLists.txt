@@ -33,6 +33,8 @@ add_message_files(DIRECTORY msg FILES
   CollisionAvoidanceInfo.msg
   UavInfo.msg
   SystemHealthInfo.msg
+
+  UavState.msg
   )
 
 ## Generate added messages and services with any dependencies listed here

@@ -101,6 +101,9 @@ namespace mrs_robot_diagnostics
     ros::Publisher pub_system_health_info_;
     mrs_lib::SubscribeHandler<sensor_msgs::MagneticField> sh_hw_api_magnetic_field_;
 
+    // | ------------------------ UAV state ----------------------- |
+    ros::Publisher pub_uav_state_;
+
     // | ----------------------- main timer ----------------------- |
 
     ros::Timer timer_main_;
@@ -197,6 +200,9 @@ namespace mrs_robot_diagnostics
     pub_system_health_info_ = nh_.advertise<mrs_robot_diagnostics::SystemHealthInfo>("out/system_health_info", 10);
     sh_hw_api_magnetic_field_ = mrs_lib::SubscribeHandler<sensor_msgs::MagneticField>(shopts, "in/hw_api_magnetic_field", mrs_lib::no_timeout);
 
+    // | ------------------------ UAV state ----------------------- |
+    pub_uav_state_ = nh_.advertise<mrs_robot_diagnostics::UavState>("out/uav_state", 10);
+
     // | ------------------------- timers ------------------------- |
 
     timer_main_ = nh_.createTimer(ros::Rate(main_timer_rate), &StateMonitor::timerMain, this);
@@ -217,6 +223,7 @@ namespace mrs_robot_diagnostics
 
   void StateMonitor::timerMain([[maybe_unused]] const ros::TimerEvent& event)
   {
+    const auto now = ros::Time::now();
     const bool new_uav_status = sh_uav_status_.newMsg();
     const auto uav_status = new_uav_status ? sh_uav_status_.getMsg() : nullptr;
 
@@ -239,10 +246,14 @@ namespace mrs_robot_diagnostics
     if (sh_hw_api_status_.newMsg() && new_uav_status && sh_mass_nominal_.hasMsg() && sh_mass_estimate_.newMsg())
       pub_uav_info_.publish(parse_uav_info(sh_hw_api_status_.getMsg(), uav_status, sh_mass_nominal_.getMsg(), sh_mass_estimate_.getMsg(), uav_state_.value()));
 
-    // to avoid warnings
     const auto hw_api_magnetic_field = sh_hw_api_magnetic_field_.hasMsg() ? sh_hw_api_magnetic_field_.getMsg() : nullptr;
     if (new_uav_status && new_hw_api_gnss)
       pub_system_health_info_.publish(parse_system_health_info(uav_status, hw_api_gnss, hw_api_magnetic_field));
+
+    mrs_robot_diagnostics::UavState uav_state_msg;
+    uav_state_msg.stamp = now;
+    uav_state_msg.state = to_ros(uav_state_.value());
+    pub_uav_state_.publish(uav_state_msg);
 
     // | -------------------- UAV state parsing ------------------- |
     const bool got_all_messages = sh_hw_api_status_.hasMsg() && sh_control_manager_diagnostics_.hasMsg();
