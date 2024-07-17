@@ -12,6 +12,7 @@
 #define X_ENUM_SEQ                      \
                           (DISARMED)    \
                           (ARMED)       \
+                          (OFFBOARD)    \
                           (MANUAL)      \
                           (TAKEOFF)     \
                           (LAND)        \

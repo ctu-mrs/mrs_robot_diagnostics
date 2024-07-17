@@ -43,12 +43,14 @@ namespace mrs_robot_diagnostics
       return uav_state_t::MANUAL;
 
     // armed, not flying
-    const bool hw_loitering = hw_api_status->mode == "AUTO.LOITER";
     const auto tracker_state = parse_tracker_state(control_manager_diagnostics);
     const bool null_tracker = tracker_state == tracker_state_t::NULL_TRACKER;
-    if (hw_loitering || null_tracker)
+    if (hw_armed && null_tracker){
+      const bool offboard = hw_api_status->offboard;
+      if (offboard)
+        return uav_state_t::OFFBOARD;
       return uav_state_t::ARMED;
-
+    }
     // flying using the MRS system in RC joystick mode
     if (control_manager_diagnostics->joystick_active)
       return uav_state_t::RC_MODE;
