@@ -12,6 +12,7 @@
 #define X_ENUM_SEQ                      \
                           (DISARMED)    \
                           (ARMED)       \
+                          (OFFBOARD)    \
                           (MANUAL)      \
                           (TAKEOFF)     \
                           (LAND)        \
@@ -47,6 +48,7 @@ DEFINE_ENUM_MSG_CONVERSIONS(X_ENUM_NAME, X_ENUM_MSG_TYPE, X_ENUM_MSG_MEMBER, X_E
     {
       case uav_state_t::DISARMED:
       case uav_state_t::ARMED:
+      case uav_state_t::OFFBOARD:
         return false;
       default:
         return true;
