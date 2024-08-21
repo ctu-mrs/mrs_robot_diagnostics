@@ -13,6 +13,8 @@
 #include <mrs_lib/mutex.h>
 #include <mrs_lib/subscribe_handler.h>
 
+#include <mrs_errorgraph/errorgraph.h>
+
 #include <mrs_msgs/UavStatus.h>
 #include <mrs_msgs/HwApiStatus.h>
 #include <mrs_msgs/ControlManagerDiagnostics.h>
@@ -63,6 +65,10 @@ namespace mrs_robot_diagnostics
 
     enum_helpers::enum_updater<uav_state_t> uav_state_ = {"UAV STATE", uav_state_t::UNKNOWN};
 
+    std::mutex errorgraph_mtx_;
+    mrs_errorgraph::Errorgraph errorgraph_;
+    const mrs_errorgraph::node_id_t autostart_node_id_ = {"AutomaticStart", "main"};
+
     std::string _robot_name_;
     std::string _robot_type_;
     int _robot_type_id_;
@@ -75,6 +81,8 @@ namespace mrs_robot_diagnostics
 
     // | ---------------------- ROS subscribers --------------------- |
     std::shared_ptr<mrs_lib::TimeoutManager> tim_mgr_;
+
+    mrs_lib::SubscribeHandler<mrs_errorgraph::ErrorgraphElement> sh_errorgraph_error_msg_;
 
     // | -------------------- GeneralRobotInfo -------------------- |
     ros::Publisher pub_general_robot_info_;
@@ -122,8 +130,10 @@ namespace mrs_robot_diagnostics
     ros::Timer timer_main_;
     void timerMain(const ros::TimerEvent& event);
 
-    // | ------------------ Additional functions ------------------ |
+    // | ------------------------ Callbacks ----------------------- |
+    void cbk_errorgraph_element(const mrs_errorgraph::ErrorgraphElement::ConstPtr element_msg);
 
+    // | ------------------ Additional functions ------------------ |
     mrs_robot_diagnostics::GeneralRobotInfo parse_general_robot_info(sensor_msgs::BatteryState::ConstPtr battery_state);
     mrs_robot_diagnostics::StateEstimationInfo parse_state_estimation_info(mrs_msgs::EstimationDiagnostics::ConstPtr estimation_diagnostics,
                                                                            mrs_msgs::Float64Stamped::ConstPtr local_heading,
@@ -204,6 +214,8 @@ namespace mrs_robot_diagnostics
     shopts.autostart = true;
     shopts.queue_size = 10;
     shopts.transport_hints = ros::TransportHints().tcpNoDelay();
+
+    sh_errorgraph_error_msg_ = mrs_lib::SubscribeHandler<mrs_errorgraph::ErrorgraphElement>(shopts, "in/errors", &StateMonitor::cbk_errorgraph_element, this);
 
     // | -------------------- GeneralRobotInfo -------------------- |
     pub_general_robot_info_ = nh_.advertise<mrs_robot_diagnostics::GeneralRobotInfo>("out/general_robot_info", 10);
@@ -325,10 +337,16 @@ namespace mrs_robot_diagnostics
 
   //}
 
+  // | ------------------------ callbacks ----------------------- |
+  void StateMonitor::cbk_errorgraph_element(const mrs_errorgraph::ErrorgraphElement::ConstPtr element_msg)
+  {
+    std::scoped_lock lck(errorgraph_mtx_);
+    errorgraph_.add_element_from_msg(*element_msg);
+  }
+
   // | -------------------- support functions ------------------- |
 
-/* cov2eigen() //{ */
-
+  /* cov2eigen() //{ */
   Eigen::Matrix3d cov2eigen(const boost::array<double, 9>& msg_cov)
   {
     Eigen::Matrix3d cov;
@@ -337,9 +355,6 @@ namespace mrs_robot_diagnostics
         cov(r, c) = msg_cov.at(r + 3 * c);
     return cov;
   }
-
-
-//}
 
   // | --------------------- Parsing methods -------------------- |
 
@@ -358,15 +373,36 @@ namespace mrs_robot_diagnostics
     const bool autostart_running = sh_automatic_start_can_takeoff_.getNumPublishers();
     const bool autostart_ready = sh_automatic_start_can_takeoff_.hasMsg() && sh_automatic_start_can_takeoff_.getMsg()->data;
     const bool state_ok = uav_state_.value() == uav_state_t::DISARMED;
-    msg.ready_to_start = state_ok && autostart_running & autostart_ready;
+    msg.ready_to_start = state_ok && autostart_running && autostart_ready;
+
     if (is_flying(uav_state_.value()))
-      msg.problem_preventing_start = "UAV is in flight";
+    {
+      msg.problems_preventing_start.emplace_back("UAV is in flight");
+    }
     else if (!state_ok)
-      msg.problem_preventing_start = "UAV is not in DISARMED state";
+    {
+      msg.problems_preventing_start.emplace_back("UAV is not in DISARMED state");
+    }
     else if (!autostart_running)
-      msg.problem_preventing_start = "Automatic start node is not running";
+    {
+      msg.problems_preventing_start.emplace_back("Automatic start node is not running");
+    }
     else if (!autostart_ready)
-      msg.problem_preventing_start = "Automatic start reports UAV not ready";
+    {
+    // if autostart reports that it is not ready, try to find the root cause
+      std::scoped_lock lck(errorgraph_mtx_);
+      const auto dependency_roots = errorgraph_.find_dependency_roots(autostart_node_id_);
+      if (dependency_roots.empty())
+      {
+        msg.problems_preventing_start.emplace_back("Automatic start reports UAV not ready");
+      }
+      else
+      {
+        for (const auto& root : dependency_roots)
+          for (const auto& error : root->errors)
+            msg.problems_preventing_start.push_back(error.type);
+      }
+    }
     return msg;
   }
   //}
@@ -527,7 +563,7 @@ namespace mrs_robot_diagnostics
     msg.battery_state.wh_drained = -1;
 
     msg.ready_to_start = false;
-    msg.problem_preventing_start = "Diagnostics not initialized.";
+    msg.problems_preventing_start.emplace_back("Diagnostics not initialized.");
 
     return msg;
   }

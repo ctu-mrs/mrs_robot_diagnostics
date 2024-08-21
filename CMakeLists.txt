@@ -12,6 +12,7 @@ set(CATKIN_DEPENDENCIES
   nodelet
   mrs_msgs
   mrs_lib
+  mrs_errorgraph
   )
 
 set(LIBRARIES
