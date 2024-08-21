@@ -41,6 +41,16 @@ windows:
       layout: tiled
       panes:
         - waitForHw; export NS_NAME=$UAV_NAME; roslaunch mrs_robot_diagnostics state_monitor.launch
+  - topic_echos:
+      layout: tiled
+      panes:
+        - waitForRos; rostopic echo /uav1/state_monitor/collision_avoidance_info
+        - waitForRos; rostopic echo /uav1/state_monitor/control_info
+        - waitForRos; rostopic echo /uav1/state_monitor/general_robot_info
+        - waitForRos; rostopic echo /uav1/state_monitor/state_estimation_info
+        - waitForRos; rostopic echo /uav1/state_monitor/system_health_info
+        - waitForRos; rostopic echo /uav1/state_monitor/uav_info
+        - waitForRos; rostopic echo /uav1/state_monitor/uav_state
   - rviz:
       layout: tiled
       panes:

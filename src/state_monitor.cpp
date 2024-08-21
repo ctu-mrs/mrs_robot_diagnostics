@@ -70,11 +70,13 @@ namespace mrs_robot_diagnostics
 
     // | -------------------- GeneralRobotInfo -------------------- |
     ros::Publisher pub_general_robot_info_;
+    mrs_robot_diagnostics::GeneralRobotInfo last_general_robot_info_;
     mrs_lib::SubscribeHandler<std_msgs::Bool> sh_automatic_start_can_takeoff_;
     mrs_lib::SubscribeHandler<sensor_msgs::BatteryState> sh_battery_state_;
 
     // | ------------------- StateEstimationInfo ------------------ |
     ros::Publisher pub_state_estimation_info_;
+    mrs_robot_diagnostics::StateEstimationInfo last_state_estimation_info_;
     mrs_lib::SubscribeHandler<mrs_msgs::EstimationDiagnostics> sh_estimation_diagnostics_;
     mrs_lib::SubscribeHandler<sensor_msgs::NavSatFix> sh_hw_api_gnss_;
     mrs_lib::SubscribeHandler<mrs_msgs::Float64Stamped> sh_control_manager_heading_;
@@ -82,15 +84,18 @@ namespace mrs_robot_diagnostics
 
     // | ----------------------- ControlInfo ---------------------- |
     ros::Publisher pub_control_info_;
+    mrs_robot_diagnostics::ControlInfo last_control_info_;
     mrs_lib::SubscribeHandler<mrs_msgs::ControlManagerDiagnostics> sh_control_manager_diagnostics_;
     mrs_lib::SubscribeHandler<std_msgs::Float64> sh_control_manager_thrust_;
 
     // | ----------------- CollisionAvoidanceInfo ----------------- |
     ros::Publisher pub_collision_avoidance_info_;
+    mrs_robot_diagnostics::CollisionAvoidanceInfo last_collision_avoidance_info_;
     mrs_lib::SubscribeHandler<mrs_msgs::MpcTrackerDiagnostics> sh_mpc_tracker_diagnostics_;
 
     // | ------------------------- UavInfo ------------------------ |
     ros::Publisher pub_uav_info_;
+    mrs_robot_diagnostics::UavInfo last_uav_info_;
     mrs_lib::SubscribeHandler<mrs_msgs::HwApiStatus> sh_hw_api_status_;
     mrs_lib::SubscribeHandler<mrs_msgs::UavStatus> sh_uav_status_;
     mrs_lib::SubscribeHandler<std_msgs::Float64> sh_mass_nominal_;
@@ -98,6 +103,7 @@ namespace mrs_robot_diagnostics
 
     // | -------------------- SystemHealthInfo -------------------- |
     ros::Publisher pub_system_health_info_;
+    mrs_robot_diagnostics::SystemHealthInfo last_system_health_info_;
     mrs_lib::SubscribeHandler<sensor_msgs::MagneticField> sh_hw_api_magnetic_field_;
 
     // | ------------------------ UAV state ----------------------- |
@@ -116,6 +122,13 @@ namespace mrs_robot_diagnostics
     mrs_robot_diagnostics::CollisionAvoidanceInfo parse_collision_avoidance_info(mrs_msgs::MpcTrackerDiagnostics::ConstPtr mpc_tracker_diagnostics);
     mrs_robot_diagnostics::UavInfo parse_uav_info(mrs_msgs::HwApiStatus::ConstPtr hw_api_status, mrs_msgs::UavStatus::ConstPtr uav_status, std_msgs::Float64::ConstPtr mass_nominal, std_msgs::Float64::ConstPtr mass_estimate, uav_state_t uav_state);
     mrs_robot_diagnostics::SystemHealthInfo parse_system_health_info(mrs_msgs::UavStatus::ConstPtr uav_status, sensor_msgs::NavSatFix::ConstPtr gnss, sensor_msgs::MagneticField::ConstPtr magnetic_field);
+
+    mrs_robot_diagnostics::GeneralRobotInfo init_general_robot_info();
+    mrs_robot_diagnostics::StateEstimationInfo init_state_estimation_info();
+    mrs_robot_diagnostics::ControlInfo init_control_info();
+    mrs_robot_diagnostics::CollisionAvoidanceInfo init_collision_avoidance_info();
+    mrs_robot_diagnostics::UavInfo init_uav_info();
+    mrs_robot_diagnostics::SystemHealthInfo init_system_health_info();
   };
   //}
 
@@ -169,11 +182,13 @@ namespace mrs_robot_diagnostics
 
     // | -------------------- GeneralRobotInfo -------------------- |
     pub_general_robot_info_ = nh_.advertise<mrs_robot_diagnostics::GeneralRobotInfo>("out/general_robot_info", 10);
+    last_general_robot_info_ = init_general_robot_info();
     sh_battery_state_ = mrs_lib::SubscribeHandler<sensor_msgs::BatteryState>(shopts, "in/battery_state");
     sh_automatic_start_can_takeoff_ = mrs_lib::SubscribeHandler<std_msgs::Bool>(shopts, "in/automatic_start_can_takeoff", mrs_lib::no_timeout);
 
     // | ------------------- StateEstimationInfo ------------------ |
     pub_state_estimation_info_ = nh_.advertise<mrs_robot_diagnostics::StateEstimationInfo>("out/state_estimation_info", 10);
+    last_state_estimation_info_ = init_state_estimation_info();
     sh_estimation_diagnostics_ = mrs_lib::SubscribeHandler<mrs_msgs::EstimationDiagnostics>(shopts, "in/estimation_diagnostics");
     sh_hw_api_gnss_ = mrs_lib::SubscribeHandler<sensor_msgs::NavSatFix>(shopts, "in/hw_api_gnss");
     sh_control_manager_heading_ = mrs_lib::SubscribeHandler<mrs_msgs::Float64Stamped>(shopts, "in/control_manager_heading");
@@ -181,15 +196,18 @@ namespace mrs_robot_diagnostics
 
     // | ----------------------- ControlInfo ---------------------- |
     pub_control_info_ = nh_.advertise<mrs_robot_diagnostics::ControlInfo>("out/control_info", 10);
+    last_control_info_ = init_control_info();
     sh_control_manager_diagnostics_ = mrs_lib::SubscribeHandler<mrs_msgs::ControlManagerDiagnostics>(shopts, "in/control_manager_diagnostics");
     sh_control_manager_thrust_ = mrs_lib::SubscribeHandler<std_msgs::Float64>(shopts, "in/control_manager_thrust");
 
     // | ----------------- CollisionAvoidanceInfo ----------------- |
     pub_collision_avoidance_info_ = nh_.advertise<mrs_robot_diagnostics::CollisionAvoidanceInfo>("out/collision_avoidance_info", 10);
+    last_collision_avoidance_info_ = init_collision_avoidance_info();
     sh_mpc_tracker_diagnostics_ = mrs_lib::SubscribeHandler<mrs_msgs::MpcTrackerDiagnostics>(shopts, "in/mpc_tracker_diagnostics");
 
     // | ------------------------- UavInfo ------------------------ |
     pub_uav_info_ = nh_.advertise<mrs_robot_diagnostics::UavInfo>("out/uav_info", 10);
+    last_uav_info_ = init_uav_info();
     sh_hw_api_status_ = mrs_lib::SubscribeHandler<mrs_msgs::HwApiStatus>(shopts, "in/hw_api_status");
     sh_uav_status_ = mrs_lib::SubscribeHandler<mrs_msgs::UavStatus>(shopts, "in/uav_status");
     sh_mass_nominal_ = mrs_lib::SubscribeHandler<std_msgs::Float64>(shopts, "in/mass_nominal");
@@ -197,6 +215,7 @@ namespace mrs_robot_diagnostics
 
     // | -------------------- SystemHealthInfo -------------------- |
     pub_system_health_info_ = nh_.advertise<mrs_robot_diagnostics::SystemHealthInfo>("out/system_health_info", 10);
+    last_system_health_info_ = init_system_health_info();
     sh_hw_api_magnetic_field_ = mrs_lib::SubscribeHandler<sensor_msgs::MagneticField>(shopts, "in/hw_api_magnetic_field", mrs_lib::no_timeout);
 
     // | ------------------------ UAV state ----------------------- |
@@ -231,23 +250,30 @@ namespace mrs_robot_diagnostics
 
     // | ---------- Output message parsing and publishing ---------- |
     if (sh_battery_state_.newMsg())
-      pub_general_robot_info_.publish(parse_general_robot_info(sh_battery_state_.getMsg()));
+      last_general_robot_info_ = parse_general_robot_info(sh_battery_state_.getMsg());
 
     if (sh_estimation_diagnostics_.newMsg() && sh_control_manager_heading_.newMsg() && new_hw_api_gnss && sh_hw_api_mag_heading_.newMsg())
-      pub_state_estimation_info_.publish(parse_state_estimation_info(sh_estimation_diagnostics_.getMsg(), sh_control_manager_heading_.getMsg(), hw_api_gnss, sh_hw_api_mag_heading_.getMsg()));
+      last_state_estimation_info_ = parse_state_estimation_info(sh_estimation_diagnostics_.getMsg(), sh_control_manager_heading_.getMsg(), hw_api_gnss, sh_hw_api_mag_heading_.getMsg());
 
     if (sh_control_manager_diagnostics_.newMsg() && sh_control_manager_thrust_.newMsg())
-      pub_control_info_.publish(parse_control_info(sh_control_manager_diagnostics_.getMsg(), sh_control_manager_thrust_.getMsg()));
+      last_control_info_ = parse_control_info(sh_control_manager_diagnostics_.getMsg(), sh_control_manager_thrust_.getMsg());
 
     if (sh_mpc_tracker_diagnostics_.newMsg())
-      pub_collision_avoidance_info_.publish(parse_collision_avoidance_info(sh_mpc_tracker_diagnostics_.getMsg()));
+      last_collision_avoidance_info_ = parse_collision_avoidance_info(sh_mpc_tracker_diagnostics_.getMsg());
 
     if (sh_hw_api_status_.newMsg() && new_uav_status && sh_mass_nominal_.hasMsg() && sh_mass_estimate_.newMsg())
-      pub_uav_info_.publish(parse_uav_info(sh_hw_api_status_.getMsg(), uav_status, sh_mass_nominal_.getMsg(), sh_mass_estimate_.getMsg(), uav_state_.value()));
+      last_uav_info_ = parse_uav_info(sh_hw_api_status_.getMsg(), uav_status, sh_mass_nominal_.getMsg(), sh_mass_estimate_.getMsg(), uav_state_.value());
 
     const auto hw_api_magnetic_field = sh_hw_api_magnetic_field_.hasMsg() ? sh_hw_api_magnetic_field_.getMsg() : nullptr;
     if (new_uav_status && new_hw_api_gnss)
-      pub_system_health_info_.publish(parse_system_health_info(uav_status, hw_api_gnss, hw_api_magnetic_field));
+      last_system_health_info_ = parse_system_health_info(uav_status, hw_api_gnss, hw_api_magnetic_field);
+
+    pub_general_robot_info_.publish(last_general_robot_info_);
+    pub_state_estimation_info_.publish(last_state_estimation_info_);
+    pub_control_info_.publish(last_control_info_);
+    pub_collision_avoidance_info_.publish(last_collision_avoidance_info_);
+    pub_uav_info_.publish(last_uav_info_);
+    pub_system_health_info_.publish(last_system_health_info_);
 
     mrs_robot_diagnostics::UavState uav_state_msg;
     uav_state_msg.stamp = now;
@@ -283,6 +309,8 @@ Eigen::Matrix3d cov2eigen(const boost::array<double, 9>& msg_cov)
       cov(r, c) = msg_cov.at(r + 3*c);
   return cov;
 }
+
+// | --------------------- Parsing methods -------------------- |
 
   /* parse_general_robot_info() method //{ */
   mrs_robot_diagnostics::GeneralRobotInfo StateMonitor::parse_general_robot_info(sensor_msgs::BatteryState::ConstPtr battery_state)
@@ -440,6 +468,131 @@ mrs_robot_diagnostics::SystemHealthInfo StateMonitor::parse_system_health_info(m
   ss_msg.status = "NOT_IMPLEMENTED";
 
   msg.required_sensors.push_back(ss_msg);
+
+  return msg;
+}
+//}
+
+// | -------------------- Msg init methods -------------------- |
+
+/* init_general_robot_info() method //{ */
+mrs_robot_diagnostics::GeneralRobotInfo StateMonitor::init_general_robot_info()
+{
+  mrs_robot_diagnostics::GeneralRobotInfo msg;
+
+  msg.stamp = ros::Time(0);
+  msg.robot_name = "";
+  msg.robot_type = "";
+
+  msg.battery_state.voltage = -1;
+  msg.battery_state.percentage = -1;
+  msg.battery_state.wh_drained = -1;
+
+  msg.ready_to_start = false;
+  msg.problem_preventing_start = "Diagnostics not initialized.";
+
+  return msg;
+}
+//}
+
+/* init_state_estimation_info() method //{ */
+mrs_robot_diagnostics::StateEstimationInfo StateMonitor::init_state_estimation_info()
+{
+  mrs_robot_diagnostics::StateEstimationInfo msg;
+
+  msg.header.stamp = ros::Time(0);
+  msg.header.frame_id = "";
+
+  msg.local_pose.position.x = std::numeric_limits<double>::quiet_NaN();
+  msg.local_pose.position.y = std::numeric_limits<double>::quiet_NaN();
+  msg.local_pose.position.z = std::numeric_limits<double>::quiet_NaN();
+  msg.local_pose.heading = std::numeric_limits<double>::quiet_NaN();
+
+  msg.velocity.linear.x = std::numeric_limits<double>::quiet_NaN();
+  msg.velocity.linear.y = std::numeric_limits<double>::quiet_NaN();
+  msg.velocity.linear.z = std::numeric_limits<double>::quiet_NaN();
+  msg.velocity.angular.x = std::numeric_limits<double>::quiet_NaN();
+  msg.velocity.angular.y = std::numeric_limits<double>::quiet_NaN();
+  msg.velocity.angular.z = std::numeric_limits<double>::quiet_NaN();
+
+  msg.acceleration.linear.x = std::numeric_limits<double>::quiet_NaN();
+  msg.acceleration.linear.y = std::numeric_limits<double>::quiet_NaN();
+  msg.acceleration.linear.z = std::numeric_limits<double>::quiet_NaN();
+  msg.acceleration.angular.x = std::numeric_limits<double>::quiet_NaN();
+  msg.acceleration.angular.y = std::numeric_limits<double>::quiet_NaN();
+  msg.acceleration.angular.z = std::numeric_limits<double>::quiet_NaN();
+
+  msg.above_ground_level_height = std::numeric_limits<double>::quiet_NaN();
+
+  msg.global_pose.position.x = std::numeric_limits<double>::quiet_NaN();
+  msg.global_pose.position.y = std::numeric_limits<double>::quiet_NaN();
+  msg.global_pose.position.z = std::numeric_limits<double>::quiet_NaN();
+  msg.global_pose.heading = std::numeric_limits<double>::quiet_NaN();
+
+  msg.current_estimator = "unknown";
+
+  return msg;
+}
+//}
+
+/* init_control_info() method //{ */
+mrs_robot_diagnostics::ControlInfo StateMonitor::init_control_info()
+{
+  mrs_robot_diagnostics::ControlInfo msg;
+
+  msg.active_controller = "unknown";
+  msg.active_tracker = "unknown";
+  msg.thrust = std::numeric_limits<double>::quiet_NaN();
+
+  return msg;
+}
+//}
+
+/* init_collision_avoidance_info() method //{ */
+mrs_robot_diagnostics::CollisionAvoidanceInfo StateMonitor::init_collision_avoidance_info()
+{
+  mrs_robot_diagnostics::CollisionAvoidanceInfo msg;
+
+  msg.collision_avoidance_enabled = false;
+  msg.avoiding_collision = false;
+
+  return msg;
+}
+//}
+
+/* init_uav_info() method //{ */
+mrs_robot_diagnostics::UavInfo StateMonitor::init_uav_info()
+{
+  mrs_robot_diagnostics::UavInfo msg;
+
+  msg.flight_state = "unknown";
+  msg.flight_duration = std::numeric_limits<double>::quiet_NaN();
+  msg.armed = false;
+  msg.offboard = false;
+  msg.mass_nominal = std::numeric_limits<double>::quiet_NaN();
+  msg.mass_estimate = std::numeric_limits<double>::quiet_NaN();
+
+  return msg;
+}
+//}
+
+/* init_system_health_info() method //{ */
+mrs_robot_diagnostics::SystemHealthInfo StateMonitor::init_system_health_info()
+{
+  mrs_robot_diagnostics::SystemHealthInfo msg;
+
+  msg.cpu_load = std::numeric_limits<float>::quiet_NaN();
+  msg.free_ram = std::numeric_limits<float>::quiet_NaN();
+  msg.total_ram = std::numeric_limits<float>::quiet_NaN();
+  msg.free_hdd = -1;
+
+  msg.hw_api_rate = std::numeric_limits<float>::quiet_NaN();
+  msg.control_manager_rate = std::numeric_limits<float>::quiet_NaN();
+  msg.state_estimation_rate = std::numeric_limits<float>::quiet_NaN();
+
+  msg.gnss_uncertainty = std::numeric_limits<float>::quiet_NaN();
+  msg.mag_strength = std::numeric_limits<float>::quiet_NaN();
+  msg.mag_uncertainty = std::numeric_limits<float>::quiet_NaN();
 
   return msg;
 }
