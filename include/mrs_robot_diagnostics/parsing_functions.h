@@ -1,7 +1,6 @@
 #pragma once
 
 #include <cstdint>
-#include <ros/ros.h>
 #include "mrs_robot_diagnostics/enums/uav_state.h"
 #include "mrs_robot_diagnostics/enums/tracker_state.h"
 
