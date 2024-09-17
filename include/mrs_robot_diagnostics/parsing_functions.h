@@ -14,11 +14,13 @@ namespace mrs_robot_diagnostics
   tracker_state_t parse_tracker_state(mrs_msgs::ControlManagerDiagnostics::ConstPtr control_manager_diagnostics)
   {
     if (control_manager_diagnostics->active_tracker == "NullTracker")
-      return tracker_state_t::NULL_TRACKER;
+      return tracker_state_t::INVALID;
 
     switch (control_manager_diagnostics->tracker_status.state)
     {
-      case mrs_msgs::TrackerStatus::STATE_IDLE:       return tracker_state_t::NULL_TRACKER;
+
+      case mrs_msgs::TrackerStatus::STATE_INVALID:    return tracker_state_t::INVALID;
+      case mrs_msgs::TrackerStatus::STATE_IDLE:       return tracker_state_t::IDLE;
       case mrs_msgs::TrackerStatus::STATE_TAKEOFF:    return tracker_state_t::TAKEOFF;
       case mrs_msgs::TrackerStatus::STATE_HOVER:      return tracker_state_t::HOVER;
       case mrs_msgs::TrackerStatus::STATE_REFERENCE:  return tracker_state_t::REFERENCE;
@@ -44,7 +46,7 @@ namespace mrs_robot_diagnostics
 
     // armed, not flying
     const auto tracker_state = parse_tracker_state(control_manager_diagnostics);
-    const bool null_tracker = tracker_state == tracker_state_t::NULL_TRACKER;
+    const bool null_tracker = tracker_state == tracker_state_t::INVALID;
     if (hw_armed && null_tracker){
       const bool offboard = hw_api_status->offboard;
       if (offboard)
@@ -54,6 +56,10 @@ namespace mrs_robot_diagnostics
     // flying using the MRS system in RC joystick mode
     if (control_manager_diagnostics->joystick_active)
       return uav_state_t::RC_MODE;
+
+    // LandoffTracker goes into idle state when deactivating
+    if (control_manager_diagnostics->active_tracker == "LandoffTracker" && tracker_state == tracker_state_t::IDLE)
+      return uav_state_t::TAKEOFF;
 
     // unless the RC mode is active, just parse the tracker state
     switch (tracker_state)
