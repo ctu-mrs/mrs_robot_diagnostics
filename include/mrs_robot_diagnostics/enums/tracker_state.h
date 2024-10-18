@@ -9,7 +9,8 @@
 #define X_ENUM_NAME       tracker_state_t
 #define X_ENUM_BASE_TYPE  uint8_t
 #define X_ENUM_SEQ                            \
-                          (NULL_TRACKER)      \
+                          (INVALID)           \
+                          (IDLE)              \
                           (TAKEOFF)           \
                           (HOVER)             \
                           (REFERENCE)         \
