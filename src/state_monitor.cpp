@@ -285,9 +285,11 @@ namespace mrs_robot_diagnostics
     const bool new_hw_api_gnss = sh_hw_api_gnss_.newMsg();
     const auto hw_api_gnss = new_hw_api_gnss ? sh_hw_api_gnss_.getMsg() : nullptr;
 
+    const bool new_battery_state = sh_hw_api_gnss_.newMsg();
+    const auto battery_state = new_battery_state ? sh_battery_state_.getMsg() : nullptr;
+
     // | ---------- Output message parsing and publishing ---------- |
-    if (sh_battery_state_.newMsg())
-      last_general_robot_info_ = parse_general_robot_info(sh_battery_state_.getMsg());
+    last_general_robot_info_ = parse_general_robot_info(battery_state);
 
     if (sh_estimation_diagnostics_.newMsg() && sh_control_manager_heading_.newMsg() && new_hw_api_gnss && sh_hw_api_mag_heading_.newMsg())
       last_state_estimation_info_ =
@@ -366,9 +368,15 @@ namespace mrs_robot_diagnostics
     msg.robot_name = _robot_name_;
     msg.robot_type = _robot_type_id_;
 
-    msg.battery_state.voltage = battery_state->voltage;
-    msg.battery_state.percentage = battery_state->percentage;
-    msg.battery_state.wh_drained = -1.0;
+    if (battery_state == nullptr)
+    {
+      msg.battery_state= last_general_robot_info_.battery_state;
+    }else{
+      msg.battery_state.voltage = battery_state->voltage;
+      msg.battery_state.percentage = battery_state->percentage;
+      msg.battery_state.wh_drained = -1.0;
+    }
+
 
     const bool autostart_running = sh_automatic_start_can_takeoff_.getNumPublishers();
     const bool autostart_ready = sh_automatic_start_can_takeoff_.hasMsg() && sh_automatic_start_can_takeoff_.getMsg()->data;
@@ -389,7 +397,7 @@ namespace mrs_robot_diagnostics
     }
     else if (!autostart_ready)
     {
-    // if autostart reports that it is not ready, try to find the root cause
+      // if autostart reports that it is not ready, try to find the root cause
       std::scoped_lock lck(errorgraph_mtx_);
       const auto dependency_roots = errorgraph_.find_dependency_roots(autostart_node_id_);
       if (dependency_roots.empty())
@@ -402,6 +410,19 @@ namespace mrs_robot_diagnostics
           for (const auto& error : root->errors)
             msg.problems_preventing_start.push_back(error.type);
       }
+    }
+
+    { // find all errors
+      std::scoped_lock lck(errorgraph_mtx_);
+      const auto error_roots = errorgraph_.find_roots();
+      if (!error_roots.empty())
+      {
+        for (const auto& root : error_roots){
+          for (const auto& error : root->errors){
+            msg.errors.push_back(error.type);
+          }
+        }
+      } 
     }
     return msg;
   }
