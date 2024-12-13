@@ -3,6 +3,7 @@
 #include <cstdint>
 #include "mrs_robot_diagnostics/enums/uav_state.h"
 #include "mrs_robot_diagnostics/enums/tracker_state.h"
+#include "mrs_robot_diagnostics/enums/robot_type.h"
 
 #include <mrs_msgs/HwApiStatus.h>
 #include <mrs_msgs/ControlManagerDiagnostics.h>
@@ -27,6 +28,19 @@ namespace mrs_robot_diagnostics
       case mrs_msgs::TrackerStatus::STATE_TRAJECTORY: return tracker_state_t::TRAJECTORY;
       case mrs_msgs::TrackerStatus::STATE_LAND:       return tracker_state_t::LAND;
       default:                                        return tracker_state_t::UNKNOWN;
+    }
+  }
+  //}
+  
+  /* parse_robot_type() method //{ */
+  robot_type_t parse_robot_type(int id)
+  {
+
+    switch (id)
+    {
+      case 0:                                         return robot_type_t::MULTIROTOR;
+      case 1:                                         return robot_type_t::BOAT;
+      default:                                        return robot_type_t::UNKNOWN;
     }
   }
   //}
