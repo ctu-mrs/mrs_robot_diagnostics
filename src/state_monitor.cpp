@@ -357,6 +357,7 @@ namespace mrs_robot_diagnostics
         cov(r, c) = msg_cov.at(r + 3 * c);
     return cov;
   }
+  //}
 
   // | --------------------- Parsing methods -------------------- |
 
@@ -371,12 +372,13 @@ namespace mrs_robot_diagnostics
     if (battery_state == nullptr)
     {
       msg.battery_state= last_general_robot_info_.battery_state;
-    }else{
+    }
+    else
+    {
       msg.battery_state.voltage = battery_state->voltage;
       msg.battery_state.percentage = battery_state->percentage;
       msg.battery_state.wh_drained = -1.0;
     }
-
 
     const bool autostart_running = sh_automatic_start_can_takeoff_.getNumPublishers();
     const bool autostart_ready = sh_automatic_start_can_takeoff_.hasMsg() && sh_automatic_start_can_takeoff_.getMsg()->data;
@@ -414,15 +416,38 @@ namespace mrs_robot_diagnostics
 
     { // find all errors
       std::scoped_lock lck(errorgraph_mtx_);
-      const auto error_roots = errorgraph_.find_roots();
-      if (!error_roots.empty())
+      // std::cout << "ALL ERRORS:\n";
+      // for (const auto& elem : errorgraph_)
+      // {
+      //   std::cout << elem->source_node.node << "." << elem->source_node.component << "\n";
+      //   for (const auto& err : elem->errors)
+      //   {
+      //     std::cout << "\t" << err.type << "\n";
+      //   }
+      // }
+
+      const auto error_roots = errorgraph_.find_error_roots();
+      for (const auto& root : error_roots)
       {
-        for (const auto& root : error_roots){
-          for (const auto& error : root->errors){
-            msg.errors.push_back(error.type);
-          }
+        if (root->is_not_reporting())
+        {
+          std::stringstream ss;
+          ss << root->source_node.node << "." << root->source_node.component << ": not responding";
+          msg.errors.push_back(ss.str());
         }
-      } 
+        for (const auto& error : root->errors)
+          msg.errors.push_back(error.type);
+      }
+
+      // std::cout << "ROOT ERRORS:\n";
+      // for (const auto& elem : error_roots)
+      // {
+      //   std::cout << elem->source_node.node << "." << elem->source_node.component << "\n";
+      //   for (const auto& err : elem->errors)
+      //   {
+      //     std::cout << "\t" << err.type << "\n";
+      //   }
+      // }
     }
     return msg;
   }
