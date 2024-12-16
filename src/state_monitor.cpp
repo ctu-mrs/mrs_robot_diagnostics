@@ -382,16 +382,16 @@ namespace mrs_robot_diagnostics
 
     const bool autostart_running = sh_automatic_start_can_takeoff_.getNumPublishers();
     const bool autostart_ready = sh_automatic_start_can_takeoff_.hasMsg() && sh_automatic_start_can_takeoff_.getMsg()->data;
-    const bool state_ok = uav_state_.value() == uav_state_t::DISARMED;
+    const bool state_ok = uav_state_.value() == uav_state_t::OFFBOARD;
     msg.ready_to_start = state_ok && autostart_running && autostart_ready;
 
     if (is_flying(uav_state_.value()))
     {
-      msg.problems_preventing_start.emplace_back("UAV is in flight");
+      msg.problems_preventing_start.emplace_back("UAV is in flight or the state is UNKNOWN");
     }
     else if (!state_ok)
     {
-      msg.problems_preventing_start.emplace_back("UAV is not in DISARMED state");
+      msg.problems_preventing_start.emplace_back("UAV is not ARMED and in OFFBOARD mode");
     }
     else if (!autostart_running)
     {
