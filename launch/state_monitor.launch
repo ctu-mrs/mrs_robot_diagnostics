@@ -59,6 +59,8 @@
       <remap from="~in/mass_estimate" to="control_manager/mass_estimate" />
       <remap from="~in/hw_api_magnetic_field" to="hw_api/magnetic_field" />
 
+      <remap from="~in/errors" to="errors" />
+
     </node>
 
   </group>
