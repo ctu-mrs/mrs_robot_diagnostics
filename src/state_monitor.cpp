@@ -382,14 +382,24 @@ namespace mrs_robot_diagnostics
 
     const bool autostart_running = sh_automatic_start_can_takeoff_.getNumPublishers();
     const bool autostart_ready = sh_automatic_start_can_takeoff_.hasMsg() && sh_automatic_start_can_takeoff_.getMsg()->data;
-    const bool state_ok = uav_state_.value() == uav_state_t::OFFBOARD;
-    msg.ready_to_start = state_ok && autostart_running && autostart_ready;
+    const bool state_offboard = uav_state_.value() == uav_state_t::OFFBOARD;
+    const bool state_unknown = uav_state_.value() == uav_state_t::UNKNOWN;
+    const bool state_manual = uav_state_.value() == uav_state_t::MANUAL;
+    msg.ready_to_start = state_offboard && autostart_running && autostart_ready;
 
-    if (is_flying(uav_state_.value()))
+    if (is_flying_autonomously(uav_state_.value()))
     {
-      msg.problems_preventing_start.emplace_back("UAV is in flight or the state is UNKNOWN");
+      // drone is in the autonomous mode, everything good
     }
-    else if (!state_ok)
+    else if (state_unknown)
+    {
+      msg.problems_preventing_start.emplace_back("UAV state is in UNKNOWN mode");
+    }
+    else if (state_manual)
+    {
+      msg.problems_preventing_start.emplace_back("UAV state is in MANUAL mode");
+    }
+    else if (!state_offboard)
     {
       msg.problems_preventing_start.emplace_back("UAV is not ARMED and in OFFBOARD mode");
     }
