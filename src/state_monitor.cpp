@@ -393,7 +393,7 @@ namespace mrs_robot_diagnostics
     }
     else if (state_unknown)
     {
-      msg.problems_preventing_start.emplace_back("UAV state is in UNKNOWN mode");
+      msg.problems_preventing_start.emplace_back("UAV state is UNKNOWN");
     }
     else if (state_manual)
     {
