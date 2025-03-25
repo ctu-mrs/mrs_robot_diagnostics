@@ -63,6 +63,7 @@ namespace mrs_robot_diagnostics
   private:
     ros::NodeHandle nh_;
 
+    std::mutex uav_state_mutex_;
     enum_helpers::enum_updater<uav_state_t> uav_state_ = {"UAV STATE", uav_state_t::UNKNOWN};
 
     std::mutex errorgraph_mtx_;
@@ -128,7 +129,9 @@ namespace mrs_robot_diagnostics
     // | ----------------------- main timer ----------------------- |
 
     ros::Timer timer_main_;
+    ros::Timer timer_uav_state_;
     void timerMain(const ros::TimerEvent& event);
+    void timerUavState(const ros::TimerEvent& event);
 
     // | ------------------------ Callbacks ----------------------- |
     void cbk_errorgraph_element(const mrs_errorgraph::ErrorgraphElement::ConstPtr element_msg);
@@ -195,6 +198,7 @@ namespace mrs_robot_diagnostics
     }
 
     const auto main_timer_rate = param_loader.loadParam2<double>("main_timer_rate");
+    const auto uav_state_timer_rate = param_loader.loadParam2<double>("uav_state_timer_rate");
 
     if (!param_loader.loadedSuccessfully())
     {
@@ -261,6 +265,7 @@ namespace mrs_robot_diagnostics
     // | ------------------------- timers ------------------------- |
 
     timer_main_ = nh_.createTimer(ros::Rate(main_timer_rate), &StateMonitor::timerMain, this);
+    timer_uav_state_ = nh_.createTimer(ros::Rate(uav_state_timer_rate), &StateMonitor::timerUavState, this);
 
     // | --------------------- finish the init -------------------- |
 
@@ -278,6 +283,7 @@ namespace mrs_robot_diagnostics
 
   void StateMonitor::timerMain([[maybe_unused]] const ros::TimerEvent& event)
   {
+    std::scoped_lock lck(uav_state_mutex_);
     const auto now = ros::Time::now();
     const bool new_uav_status = sh_uav_status_.newMsg();
     const auto uav_status = new_uav_status ? sh_uav_status_.getMsg() : nullptr;
@@ -289,6 +295,17 @@ namespace mrs_robot_diagnostics
     const auto battery_state = new_battery_state ? sh_battery_state_.getMsg() : nullptr;
 
     // | ---------- Output message parsing and publishing ---------- |
+    const bool got_all_messages = sh_hw_api_status_.hasMsg() && sh_control_manager_diagnostics_.hasMsg();
+    if (got_all_messages)
+    {
+      // these getMsg() must be after the newMsg() checks above (otherwise, it will never succeed)
+      const auto hw_api_status = sh_hw_api_status_.peekMsg();
+      const auto control_manager_diagnostics = sh_control_manager_diagnostics_.peekMsg();
+
+      const auto new_state = parse_uav_state(hw_api_status, control_manager_diagnostics);
+      uav_state_.set(new_state);
+    }
+
     last_general_robot_info_ = parse_general_robot_info(battery_state);
 
     if (sh_estimation_diagnostics_.newMsg() && sh_control_manager_heading_.newMsg() && new_hw_api_gnss && sh_hw_api_mag_heading_.newMsg())
@@ -320,21 +337,37 @@ namespace mrs_robot_diagnostics
     uav_state_msg.state = to_ros(uav_state_.value());
     pub_uav_state_.publish(uav_state_msg);
 
-    // | -------------------- UAV state parsing ------------------- |
+    // to avoid getting timeout warnings on this latched message
+    if (sh_mass_nominal_.hasMsg())
+      sh_mass_nominal_.setNoMessageTimeout(mrs_lib::no_timeout);
+  }
+
+  //}
+
+  /* timerUavState() //{ */
+
+  void StateMonitor::timerUavState([[maybe_unused]] const ros::TimerEvent& event)
+  {
+    std::scoped_lock lck(uav_state_mutex_);
+    const auto now = ros::Time::now();
     const bool got_all_messages = sh_hw_api_status_.hasMsg() && sh_control_manager_diagnostics_.hasMsg();
     if (got_all_messages)
     {
       // these getMsg() must be after the newMsg() checks above (otherwise, it will never succeed)
-      const auto hw_api_status = sh_hw_api_status_.getMsg();
-      const auto control_manager_diagnostics = sh_control_manager_diagnostics_.getMsg();
+      const auto hw_api_status = sh_hw_api_status_.peekMsg();
+      const auto control_manager_diagnostics = sh_control_manager_diagnostics_.peekMsg();
 
       const auto new_state = parse_uav_state(hw_api_status, control_manager_diagnostics);
+      if (new_state == uav_state_.value())
+        return;
+
       uav_state_.set(new_state);
     }
 
-    // to avoid getting timeout warnings on this latched message
-    if (sh_mass_nominal_.hasMsg())
-      sh_mass_nominal_.setNoMessageTimeout(mrs_lib::no_timeout);
+    mrs_robot_diagnostics::UavState uav_state_msg;
+    uav_state_msg.stamp = now;
+    uav_state_msg.state = to_ros(uav_state_.value());
+    pub_uav_state_.publish(uav_state_msg);
   }
 
   //}
