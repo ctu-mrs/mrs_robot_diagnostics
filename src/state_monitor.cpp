@@ -373,11 +373,14 @@ namespace mrs_robot_diagnostics
   //}
 
   // | ------------------------ callbacks ----------------------- |
+  
+  /* cbk_errorgraph_element() //{ */
   void StateMonitor::cbk_errorgraph_element(const mrs_errorgraph::ErrorgraphElement::ConstPtr element_msg)
   {
     std::scoped_lock lck(errorgraph_mtx_);
     errorgraph_.add_element_from_msg(*element_msg);
   }
+  //}
 
   // | -------------------- support functions ------------------- |
 
