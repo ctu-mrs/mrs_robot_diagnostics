@@ -291,37 +291,61 @@ namespace mrs_robot_diagnostics
     const bool new_hw_api_gnss = sh_hw_api_gnss_.newMsg();
     const auto hw_api_gnss = new_hw_api_gnss ? sh_hw_api_gnss_.getMsg() : nullptr;
 
-    const bool new_battery_state = sh_hw_api_gnss_.newMsg();
+    const bool new_battery_state = sh_battery_state_.newMsg();
     const auto battery_state = new_battery_state ? sh_battery_state_.getMsg() : nullptr;
 
-    // | ---------- Output message parsing and publishing ---------- |
-    const bool got_all_messages = sh_hw_api_status_.hasMsg() && sh_control_manager_diagnostics_.hasMsg();
-    if (got_all_messages)
-    {
-      // these getMsg() must be after the newMsg() checks above (otherwise, it will never succeed)
-      const auto hw_api_status = sh_hw_api_status_.peekMsg();
-      const auto control_manager_diagnostics = sh_control_manager_diagnostics_.peekMsg();
+    const bool new_hw_api_status = sh_hw_api_status_.newMsg();
+    const auto hw_api_status = new_hw_api_status ? sh_hw_api_status_.getMsg() : nullptr;
 
+    const bool new_control_manager_diagnostics = sh_control_manager_diagnostics_.newMsg();
+    const auto control_manager_diagnostics = new_control_manager_diagnostics ? sh_control_manager_diagnostics_.getMsg() : nullptr;
+
+    const bool new_estimation_diagnostics = sh_estimation_diagnostics_.newMsg();
+    const auto estimation_diagnostics = new_estimation_diagnostics ? sh_estimation_diagnostics_.getMsg() : nullptr;
+
+    const bool new_control_manager_heading = sh_control_manager_heading_.newMsg();
+    const auto control_manager_heading = new_control_manager_heading ? sh_control_manager_heading_.getMsg() : nullptr;
+
+    const bool new_hw_api_mag_heading = sh_hw_api_mag_heading_.newMsg();
+    const auto hw_api_mag_heading = new_hw_api_mag_heading ? sh_hw_api_mag_heading_.getMsg() : nullptr;
+
+    const bool new_control_manager_thrust = sh_control_manager_thrust_.newMsg();
+    const auto control_manager_thrust = new_control_manager_thrust ? sh_control_manager_thrust_.getMsg() : nullptr;
+
+    const bool new_mpc_tracker_diagnostics = sh_mpc_tracker_diagnostics_.newMsg();
+    const auto mpc_tracker_diagnostics = new_mpc_tracker_diagnostics ? sh_mpc_tracker_diagnostics_.getMsg() : nullptr;
+
+    const bool new_mass_nominal = sh_mass_nominal_.newMsg();
+    const auto mass_nominal = new_mass_nominal ? sh_mass_nominal_.getMsg() : nullptr;
+
+    const bool new_mass_estimate = sh_mass_estimate_.newMsg();
+    const auto mass_estimate = new_mass_estimate ? sh_mass_estimate_.getMsg() : nullptr;
+
+    const bool new_api_magnetic_field = sh_hw_api_magnetic_field_.newMsg();
+    const auto hw_api_magnetic_field = new_api_magnetic_field ? sh_hw_api_magnetic_field_.getMsg() : nullptr;
+
+    // | ---------- Output message parsing and publishing ---------- |
+    if (new_hw_api_status && new_control_manager_diagnostics)
+    {
       const auto new_state = parse_uav_state(hw_api_status, control_manager_diagnostics);
       uav_state_.set(new_state);
     }
 
     last_general_robot_info_ = parse_general_robot_info(battery_state);
 
-    if (sh_estimation_diagnostics_.newMsg() && sh_control_manager_heading_.newMsg() && new_hw_api_gnss && sh_hw_api_mag_heading_.newMsg())
+    if (new_estimation_diagnostics && new_control_manager_heading && new_hw_api_gnss && new_hw_api_mag_heading)
       last_state_estimation_info_ =
-          parse_state_estimation_info(sh_estimation_diagnostics_.getMsg(), sh_control_manager_heading_.getMsg(), hw_api_gnss, sh_hw_api_mag_heading_.getMsg());
+          parse_state_estimation_info(estimation_diagnostics, control_manager_heading, hw_api_gnss, hw_api_mag_heading);
 
-    if (sh_control_manager_diagnostics_.newMsg() && sh_control_manager_thrust_.newMsg())
-      last_control_info_ = parse_control_info(sh_control_manager_diagnostics_.getMsg(), sh_control_manager_thrust_.getMsg());
+    if (new_control_manager_diagnostics && new_control_manager_thrust)
+      last_control_info_ = parse_control_info(control_manager_diagnostics, control_manager_thrust);
 
-    if (sh_mpc_tracker_diagnostics_.newMsg())
-      last_collision_avoidance_info_ = parse_collision_avoidance_info(sh_mpc_tracker_diagnostics_.getMsg());
+    if (new_mpc_tracker_diagnostics)
+      last_collision_avoidance_info_ = parse_collision_avoidance_info(mpc_tracker_diagnostics);
 
-    if (sh_hw_api_status_.newMsg() && new_uav_status && sh_mass_nominal_.hasMsg() && sh_mass_estimate_.newMsg())
-      last_uav_info_ = parse_uav_info(sh_hw_api_status_.getMsg(), uav_status, sh_mass_nominal_.getMsg(), sh_mass_estimate_.getMsg(), uav_state_.value());
+    if (new_hw_api_status && new_uav_status && new_mass_nominal && new_mass_estimate)
+      last_uav_info_ = parse_uav_info(hw_api_status, uav_status, mass_nominal, mass_estimate, uav_state_.value());
 
-    const auto hw_api_magnetic_field = sh_hw_api_magnetic_field_.hasMsg() ? sh_hw_api_magnetic_field_.getMsg() : nullptr;
     if (new_uav_status && new_hw_api_gnss)
       last_system_health_info_ = parse_system_health_info(uav_status, hw_api_gnss, hw_api_magnetic_field);
 
@@ -462,15 +486,6 @@ namespace mrs_robot_diagnostics
 
     { // find all errors
       std::scoped_lock lck(errorgraph_mtx_);
-      // std::cout << "ALL ERRORS:\n";
-      // for (const auto& elem : errorgraph_)
-      // {
-      //   std::cout << elem->source_node.node << "." << elem->source_node.component << "\n";
-      //   for (const auto& err : elem->errors)
-      //   {
-      //     std::cout << "\t" << err.type << "\n";
-      //   }
-      // }
 
       const auto error_roots = errorgraph_.find_error_roots();
       for (const auto& root : error_roots)
@@ -484,16 +499,6 @@ namespace mrs_robot_diagnostics
         for (const auto& error : root->errors)
           msg.errors.push_back(error.type);
       }
-
-      // std::cout << "ROOT ERRORS:\n";
-      // for (const auto& elem : error_roots)
-      // {
-      //   std::cout << elem->source_node.node << "." << elem->source_node.component << "\n";
-      //   for (const auto& err : elem->errors)
-      //   {
-      //     std::cout << "\t" << err.type << "\n";
-      //   }
-      // }
     }
     return msg;
   }
