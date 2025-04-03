@@ -13,8 +13,12 @@
                           (BOAT)        
 
 
+
 namespace mrs_robot_diagnostics
 {
+
+#include "mrs_robot_diagnostics/enums/enum_macros.h"
+
   // generate the enum and the to_string() conversion
 DEFINE_ENUM_WITH_CONVERSIONS(X_ENUM_NAME, X_ENUM_BASE_TYPE, X_ENUM_SEQ)
 

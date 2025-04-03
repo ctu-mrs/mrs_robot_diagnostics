@@ -1,3 +1,4 @@
+#pragma once
 #include <boost/preprocessor.hpp>
 
 template <typename Enum_T, typename Ros_T>

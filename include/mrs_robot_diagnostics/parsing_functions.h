@@ -38,9 +38,9 @@ namespace mrs_robot_diagnostics
 
     switch (id)
     {
-      case 0:                                         return robot_type_t::MULTIROTOR;
-      case 1:                                         return robot_type_t::BOAT;
-      default:                                        return robot_type_t::UNKNOWN;
+      case 0:  return robot_type_t::MULTIROTOR;
+      case 1:  return robot_type_t::BOAT;
+      default: return robot_type_t::UNKNOWN;
     }
   }
   //}
@@ -48,6 +48,10 @@ namespace mrs_robot_diagnostics
   /* parse_uav_state() method //{ */
   uav_state_t parse_uav_state(mrs_msgs::HwApiStatus::ConstPtr hw_api_status, mrs_msgs::ControlManagerDiagnostics::ConstPtr control_manager_diagnostics)
   {
+
+    if (hw_api_status == nullptr || control_manager_diagnostics == nullptr)
+      return uav_state_t::UNKNOWN;
+
     const bool hw_armed = hw_api_status->armed;
     // not armed
     if (!hw_armed)

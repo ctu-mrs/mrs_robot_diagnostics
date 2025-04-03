@@ -42,6 +42,7 @@
 #include "mrs_robot_diagnostics/enums/uav_state.h"
 #include "mrs_robot_diagnostics/enums/robot_type.h"
 #include "mrs_robot_diagnostics/enums/tracker_state.h"
+#include "mrs_robot_diagnostics/enums/enum_helpers.h"
 #include "mrs_robot_diagnostics/parsing_functions.h"
 
 
@@ -59,6 +60,14 @@ namespace mrs_robot_diagnostics
 
   public:
     virtual void onInit();
+    
+    template <typename T>
+    struct subscriptionResult_t
+    {
+      bool     hasNewMessage;
+      typename T::ConstPtr message;
+    };
+
 
   private:
     ros::NodeHandle nh_;
@@ -137,6 +146,8 @@ namespace mrs_robot_diagnostics
     void cbk_errorgraph_element(const mrs_errorgraph::ErrorgraphElement::ConstPtr element_msg);
 
     // | ------------------ Additional functions ------------------ |
+    template <typename sh_T>
+    subscriptionResult_t<sh_T> processIncomingMessage(mrs_lib::SubscribeHandler<sh_T>& sh); 
     mrs_robot_diagnostics::GeneralRobotInfo parse_general_robot_info(sensor_msgs::BatteryState::ConstPtr battery_state);
     mrs_robot_diagnostics::StateEstimationInfo parse_state_estimation_info(mrs_msgs::EstimationDiagnostics::ConstPtr estimation_diagnostics,
                                                                            mrs_msgs::Float64Stamped::ConstPtr local_heading,
@@ -285,69 +296,42 @@ namespace mrs_robot_diagnostics
   {
     std::scoped_lock lck(uav_state_mutex_);
     const auto now = ros::Time::now();
-    const bool new_uav_status = sh_uav_status_.newMsg();
-    const auto uav_status = new_uav_status ? sh_uav_status_.getMsg() : nullptr;
+    const auto uav_status = processIncomingMessage(sh_uav_status_);
+    const auto hw_api_gnss = processIncomingMessage(sh_hw_api_gnss_);
+    const auto battery_state = processIncomingMessage(sh_battery_state_);
+    const auto hw_api_status = processIncomingMessage(sh_hw_api_status_);
+    const auto control_manager_diagnostics = processIncomingMessage(sh_control_manager_diagnostics_);
+    const auto estimation_diagnostics = processIncomingMessage(sh_estimation_diagnostics_);
+    const auto control_manager_heading = processIncomingMessage(sh_control_manager_heading_);
+    const auto hw_api_mag_heading = processIncomingMessage(sh_hw_api_mag_heading_);
+    const auto control_manager_thrust = processIncomingMessage(sh_control_manager_thrust_);
+    const auto mpc_tracker_diagnostics = processIncomingMessage(sh_mpc_tracker_diagnostics_);
+    const auto mass_nominal = processIncomingMessage(sh_mass_nominal_);
+    const auto mass_estimate = processIncomingMessage(sh_mass_estimate_);
+    const auto hw_api_magnetic_field = processIncomingMessage(sh_hw_api_magnetic_field_);
 
-    const bool new_hw_api_gnss = sh_hw_api_gnss_.newMsg();
-    const auto hw_api_gnss = new_hw_api_gnss ? sh_hw_api_gnss_.getMsg() : nullptr;
-
-    const bool new_battery_state = sh_battery_state_.newMsg();
-    const auto battery_state = new_battery_state ? sh_battery_state_.getMsg() : nullptr;
-
-    const bool new_hw_api_status = sh_hw_api_status_.newMsg();
-    const auto hw_api_status = new_hw_api_status ? sh_hw_api_status_.getMsg() : nullptr;
-
-    const bool new_control_manager_diagnostics = sh_control_manager_diagnostics_.newMsg();
-    const auto control_manager_diagnostics = new_control_manager_diagnostics ? sh_control_manager_diagnostics_.getMsg() : nullptr;
-
-    const bool new_estimation_diagnostics = sh_estimation_diagnostics_.newMsg();
-    const auto estimation_diagnostics = new_estimation_diagnostics ? sh_estimation_diagnostics_.getMsg() : nullptr;
-
-    const bool new_control_manager_heading = sh_control_manager_heading_.newMsg();
-    const auto control_manager_heading = new_control_manager_heading ? sh_control_manager_heading_.getMsg() : nullptr;
-
-    const bool new_hw_api_mag_heading = sh_hw_api_mag_heading_.newMsg();
-    const auto hw_api_mag_heading = new_hw_api_mag_heading ? sh_hw_api_mag_heading_.getMsg() : nullptr;
-
-    const bool new_control_manager_thrust = sh_control_manager_thrust_.newMsg();
-    const auto control_manager_thrust = new_control_manager_thrust ? sh_control_manager_thrust_.getMsg() : nullptr;
-
-    const bool new_mpc_tracker_diagnostics = sh_mpc_tracker_diagnostics_.newMsg();
-    const auto mpc_tracker_diagnostics = new_mpc_tracker_diagnostics ? sh_mpc_tracker_diagnostics_.getMsg() : nullptr;
-
-    const bool new_mass_nominal = sh_mass_nominal_.newMsg();
-    const auto mass_nominal = new_mass_nominal ? sh_mass_nominal_.getMsg() : nullptr;
-
-    const bool new_mass_estimate = sh_mass_estimate_.newMsg();
-    const auto mass_estimate = new_mass_estimate ? sh_mass_estimate_.getMsg() : nullptr;
-
-    const bool new_api_magnetic_field = sh_hw_api_magnetic_field_.newMsg();
-    const auto hw_api_magnetic_field = new_api_magnetic_field ? sh_hw_api_magnetic_field_.getMsg() : nullptr;
-
-    // | ---------- Output message parsing and publishing ---------- |
-    if (new_hw_api_status && new_control_manager_diagnostics)
-    {
-      const auto new_state = parse_uav_state(hw_api_status, control_manager_diagnostics);
+    if (hw_api_status.hasNewMessage && control_manager_diagnostics.hasNewMessage){
+      const auto new_state = parse_uav_state(hw_api_status.message, control_manager_diagnostics.message);
       uav_state_.set(new_state);
     }
 
-    last_general_robot_info_ = parse_general_robot_info(battery_state);
+    last_general_robot_info_ = parse_general_robot_info(battery_state.message);
 
-    if (new_estimation_diagnostics && new_control_manager_heading && new_hw_api_gnss && new_hw_api_mag_heading)
+    if (estimation_diagnostics.hasNewMessage && control_manager_heading.hasNewMessage && hw_api_gnss.hasNewMessage && hw_api_mag_heading.hasNewMessage)
       last_state_estimation_info_ =
-          parse_state_estimation_info(estimation_diagnostics, control_manager_heading, hw_api_gnss, hw_api_mag_heading);
+          parse_state_estimation_info(estimation_diagnostics.message, control_manager_heading.message, hw_api_gnss.message, hw_api_mag_heading.message);
 
-    if (new_control_manager_diagnostics && new_control_manager_thrust)
-      last_control_info_ = parse_control_info(control_manager_diagnostics, control_manager_thrust);
+    if (control_manager_diagnostics.hasNewMessage && control_manager_thrust.hasNewMessage)
+      last_control_info_ = parse_control_info(control_manager_diagnostics.message, control_manager_thrust.message);
 
-    if (new_mpc_tracker_diagnostics)
-      last_collision_avoidance_info_ = parse_collision_avoidance_info(mpc_tracker_diagnostics);
+    if (mpc_tracker_diagnostics.hasNewMessage)
+      last_collision_avoidance_info_ = parse_collision_avoidance_info(mpc_tracker_diagnostics.message);
 
-    if (new_hw_api_status && new_uav_status && new_mass_nominal && new_mass_estimate)
-      last_uav_info_ = parse_uav_info(hw_api_status, uav_status, mass_nominal, mass_estimate, uav_state_.value());
+    if (hw_api_status.hasNewMessage && uav_status.hasNewMessage && mass_nominal.hasNewMessage && mass_estimate.hasNewMessage)
+      last_uav_info_ = parse_uav_info(hw_api_status.message, uav_status.message, mass_nominal.message, mass_estimate.message, uav_state_.value());
 
-    if (new_uav_status && new_hw_api_gnss)
-      last_system_health_info_ = parse_system_health_info(uav_status, hw_api_gnss, hw_api_magnetic_field);
+    if (uav_status.hasNewMessage && hw_api_gnss.hasNewMessage)
+      last_system_health_info_ = parse_system_health_info(uav_status.message, hw_api_gnss.message, hw_api_magnetic_field.message);
 
     pub_general_robot_info_.publish(last_general_robot_info_);
     pub_state_estimation_info_.publish(last_state_estimation_info_);
@@ -374,19 +358,19 @@ namespace mrs_robot_diagnostics
   {
     std::scoped_lock lck(uav_state_mutex_);
     const auto now = ros::Time::now();
-    const bool got_all_messages = sh_hw_api_status_.hasMsg() && sh_control_manager_diagnostics_.hasMsg();
-    if (got_all_messages)
-    {
-      // these getMsg() must be after the newMsg() checks above (otherwise, it will never succeed)
-      const auto hw_api_status = sh_hw_api_status_.peekMsg();
-      const auto control_manager_diagnostics = sh_control_manager_diagnostics_.peekMsg();
+    const bool got_all_new_messages = sh_hw_api_status_.newMsg() && sh_control_manager_diagnostics_.newMsg();
+    if (!got_all_new_messages)
+      return;
 
-      const auto new_state = parse_uav_state(hw_api_status, control_manager_diagnostics);
-      if (new_state == uav_state_.value())
-        return;
+    // these getMsg() must be after the newMsg() checks above (otherwise, it will never succeed)
+    const auto hw_api_status = sh_hw_api_status_.peekMsg();
+    const auto control_manager_diagnostics = sh_control_manager_diagnostics_.peekMsg();
 
-      uav_state_.set(new_state);
-    }
+    const auto new_state = parse_uav_state(hw_api_status, control_manager_diagnostics);
+    if (new_state == uav_state_.value())
+      return;
+
+    uav_state_.set(new_state);
 
     mrs_robot_diagnostics::UavState uav_state_msg;
     uav_state_msg.stamp = now;
@@ -416,6 +400,16 @@ namespace mrs_robot_diagnostics
       for (int c = 0; c < 3; c++)
         cov(r, c) = msg_cov.at(r + 3 * c);
     return cov;
+  }
+  //}
+
+  /* processIncomingMessage() //{ */
+  template <typename sh_T>
+  StateMonitor::subscriptionResult_t<sh_T> StateMonitor::processIncomingMessage(mrs_lib::SubscribeHandler<sh_T>& sh) {
+    StateMonitor::subscriptionResult_t<sh_T> msg;
+    msg.hasNewMessage = sh.newMsg();
+    msg.message = msg.hasNewMessage ? sh.getMsg() : nullptr;
+    return msg;
   }
   //}
 
