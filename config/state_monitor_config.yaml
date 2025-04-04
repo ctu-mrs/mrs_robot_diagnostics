@@ -1,2 +1,4 @@
 main_timer_rate: 1.0 # [Hz]
 uav_state_timer_rate: 100.0 # [Hz]
+
+not_reporting_delay: 3.0 # [s]

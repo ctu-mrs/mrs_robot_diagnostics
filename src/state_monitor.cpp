@@ -78,7 +78,6 @@ namespace mrs_robot_diagnostics
     const mrs_errorgraph::node_id_t autostart_node_id_ = {"AutomaticStart", "main"};
 
     std::string _robot_name_;
-    std::string _robot_type_;
     int _robot_type_id_;
 
     // Robot type mapping
@@ -86,6 +85,8 @@ namespace mrs_robot_diagnostics
         {"multirotor", 0},
         {"boat", 1},
     };
+    
+    ros::Duration not_reporting_delay_;
 
     // | ---------------------- ROS subscribers --------------------- |
     std::shared_ptr<mrs_lib::TimeoutManager> tim_mgr_;
@@ -158,7 +159,7 @@ namespace mrs_robot_diagnostics
                                                           std_msgs::Float64::ConstPtr thrust);
     mrs_robot_diagnostics::CollisionAvoidanceInfo parse_collision_avoidance_info(mrs_msgs::MpcTrackerDiagnostics::ConstPtr mpc_tracker_diagnostics);
     mrs_robot_diagnostics::UavInfo parse_uav_info(mrs_msgs::HwApiStatus::ConstPtr hw_api_status, mrs_msgs::UavStatus::ConstPtr uav_status,
-                                                  std_msgs::Float64::ConstPtr mass_nominal, std_msgs::Float64::ConstPtr mass_estimate, uav_state_t uav_state);
+                                                  std_msgs::Float64::ConstPtr mass_nominal, std_msgs::Float64::ConstPtr mass_estimate);
     mrs_robot_diagnostics::SystemHealthInfo parse_system_health_info(mrs_msgs::UavStatus::ConstPtr uav_status, sensor_msgs::NavSatFix::ConstPtr gnss,
                                                                      sensor_msgs::MagneticField::ConstPtr magnetic_field);
 
@@ -196,21 +197,23 @@ namespace mrs_robot_diagnostics
 
     param_loader.addYamlFileFromParam("config");
 
+    std::string robot_type;
     param_loader.loadParam("robot_name", _robot_name_);
-    param_loader.loadParam("robot_type", _robot_type_);
+    param_loader.loadParam("robot_type", robot_type);
 
     // Maping the received robot type
-    auto it = robot_type_id_map_.find(_robot_type_);
+    auto it = robot_type_id_map_.find(robot_type);
     if (it != robot_type_id_map_.end())
     {
       _robot_type_id_ = it->second;
     } else
     {
-      ROS_ERROR_STREAM("[IROCBridge]: Unknown robot_type: " << _robot_type_);
+      ROS_ERROR_STREAM("[IROCBridge]: Unknown robot_type: " << robot_type);
     }
 
     const auto main_timer_rate = param_loader.loadParam2<double>("main_timer_rate");
     const auto uav_state_timer_rate = param_loader.loadParam2<double>("uav_state_timer_rate");
+    not_reporting_delay_ = param_loader.loadParam2<ros::Duration>("not_reporting_delay");
 
     if (!param_loader.loadedSuccessfully())
     {
@@ -224,7 +227,7 @@ namespace mrs_robot_diagnostics
     mrs_lib::SubscribeHandlerOptions shopts;
     shopts.nh = nh_;
     shopts.node_name = "StateMonitor";
-    shopts.no_message_timeout = ros::Duration(5.0);
+    shopts.no_message_timeout = ros::Duration(not_reporting_delay_);
     shopts.timeout_manager = tim_mgr_;
     shopts.threadsafe = true;
     shopts.autostart = true;
@@ -311,27 +314,27 @@ namespace mrs_robot_diagnostics
     const auto mass_estimate = processIncomingMessage(sh_mass_estimate_);
     const auto hw_api_magnetic_field = processIncomingMessage(sh_hw_api_magnetic_field_);
 
-    if (hw_api_status.hasNewMessage && control_manager_diagnostics.hasNewMessage){
+    if (hw_api_status.hasNewMessage || control_manager_diagnostics.hasNewMessage){
       const auto new_state = parse_uav_state(hw_api_status.message, control_manager_diagnostics.message);
       uav_state_.set(new_state);
     }
 
     last_general_robot_info_ = parse_general_robot_info(battery_state.message);
 
-    if (estimation_diagnostics.hasNewMessage && control_manager_heading.hasNewMessage && hw_api_gnss.hasNewMessage && hw_api_mag_heading.hasNewMessage)
+    if (estimation_diagnostics.hasNewMessage || control_manager_heading.hasNewMessage || hw_api_gnss.hasNewMessage || hw_api_mag_heading.hasNewMessage)
       last_state_estimation_info_ =
           parse_state_estimation_info(estimation_diagnostics.message, control_manager_heading.message, hw_api_gnss.message, hw_api_mag_heading.message);
 
-    if (control_manager_diagnostics.hasNewMessage && control_manager_thrust.hasNewMessage)
+    if (control_manager_diagnostics.hasNewMessage || control_manager_thrust.hasNewMessage)
       last_control_info_ = parse_control_info(control_manager_diagnostics.message, control_manager_thrust.message);
 
     if (mpc_tracker_diagnostics.hasNewMessage)
       last_collision_avoidance_info_ = parse_collision_avoidance_info(mpc_tracker_diagnostics.message);
 
-    if (hw_api_status.hasNewMessage && uav_status.hasNewMessage && mass_nominal.hasNewMessage && mass_estimate.hasNewMessage)
-      last_uav_info_ = parse_uav_info(hw_api_status.message, uav_status.message, mass_nominal.message, mass_estimate.message, uav_state_.value());
+    if (hw_api_status.hasNewMessage || uav_status.hasNewMessage || mass_nominal.hasNewMessage | mass_estimate.hasNewMessage)
+      last_uav_info_ = parse_uav_info(hw_api_status.message, uav_status.message, mass_nominal.message, mass_estimate.message);
 
-    if (uav_status.hasNewMessage && hw_api_gnss.hasNewMessage)
+    if (uav_status.hasNewMessage || hw_api_gnss.hasNewMessage)
       last_system_health_info_ = parse_system_health_info(uav_status.message, hw_api_gnss.message, hw_api_magnetic_field.message);
 
     pub_general_robot_info_.publish(last_general_robot_info_);
@@ -359,15 +362,14 @@ namespace mrs_robot_diagnostics
   {
     std::scoped_lock lck(uav_state_mutex_);
     const auto now = ros::Time::now();
-    const bool got_all_new_messages = sh_hw_api_status_.newMsg() && sh_control_manager_diagnostics_.newMsg();
-    if (!got_all_new_messages)
+    const auto hw_api_status = processIncomingMessage(sh_hw_api_status_);
+    const auto control_manager_diagnostics = processIncomingMessage(sh_control_manager_diagnostics_);
+
+    if (!hw_api_status.hasNewMessage && !control_manager_diagnostics.hasNewMessage)
       return;
 
-    // these getMsg() must be after the newMsg() checks above (otherwise, it will never succeed)
-    const auto hw_api_status = sh_hw_api_status_.peekMsg();
-    const auto control_manager_diagnostics = sh_control_manager_diagnostics_.peekMsg();
+    const auto new_state = parse_uav_state(hw_api_status.message, control_manager_diagnostics.message);
 
-    const auto new_state = parse_uav_state(hw_api_status, control_manager_diagnostics);
     if (new_state == uav_state_.value())
       return;
 
@@ -409,7 +411,13 @@ namespace mrs_robot_diagnostics
   StateMonitor::subscriptionResult_t<sh_T> StateMonitor::processIncomingMessage(mrs_lib::SubscribeHandler<sh_T>& sh) {
     StateMonitor::subscriptionResult_t<sh_T> msg;
     msg.hasNewMessage = sh.newMsg();
-    msg.message = msg.hasNewMessage ? sh.getMsg() : nullptr;
+    msg.message = msg.hasNewMessage ? sh.getMsg() : sh.peekMsg();
+    if (msg.message != nullptr){
+      if (ros::Time::now() - sh.lastMsgTime() > not_reporting_delay_){ 
+        msg.message = nullptr;
+        msg.hasNewMessage = true;
+      }
+    }
     return msg;
   }
   //}
@@ -419,6 +427,10 @@ namespace mrs_robot_diagnostics
   /* parse_tracker_state() method //{ */
   tracker_state_t StateMonitor::parse_tracker_state(mrs_msgs::ControlManagerDiagnostics::ConstPtr control_manager_diagnostics)
   {
+
+    if (control_manager_diagnostics == nullptr)
+      return tracker_state_t::UNKNOWN;
+
     if (control_manager_diagnostics->active_tracker == "NullTracker")
       return tracker_state_t::INVALID;
 
@@ -487,17 +499,14 @@ namespace mrs_robot_diagnostics
   /* parse_general_robot_info() method //{ */
   mrs_robot_diagnostics::GeneralRobotInfo StateMonitor::parse_general_robot_info(sensor_msgs::BatteryState::ConstPtr battery_state)
   {
-    mrs_robot_diagnostics::GeneralRobotInfo msg;
+    mrs_robot_diagnostics::GeneralRobotInfo msg = init_general_robot_info();
     msg.stamp = ros::Time::now();
     msg.robot_name = _robot_name_;
     msg.robot_type = _robot_type_id_;
 
-    if (battery_state == nullptr)
-    {
-      msg.battery_state= last_general_robot_info_.battery_state;
-    }
-    else
-    {
+    const bool is_battery_state_valid = battery_state != nullptr;
+
+    if (is_battery_state_valid){
       msg.battery_state.voltage = battery_state->voltage;
       msg.battery_state.percentage = battery_state->percentage;
       msg.battery_state.wh_drained = -1.0;
@@ -509,6 +518,7 @@ namespace mrs_robot_diagnostics
     const bool state_unknown = uav_state_.value() == uav_state_t::UNKNOWN;
     const bool state_manual = uav_state_.value() == uav_state_t::MANUAL;
     msg.ready_to_start = state_offboard && autostart_running && autostart_ready;
+    msg.problems_preventing_start.clear();
 
     if (is_flying_autonomously(uav_state_.value()))
     {
@@ -574,26 +584,43 @@ namespace mrs_robot_diagnostics
                                                                                        sensor_msgs::NavSatFix::ConstPtr global_position,
                                                                                        mrs_msgs::Float64Stamped::ConstPtr global_heading)
   {
-    mrs_robot_diagnostics::StateEstimationInfo msg;
-    msg.header = estimation_diagnostics->header;
+    auto init_msg = init_state_estimation_info();
+    init_msg.header.stamp = ros::Time::now(); 
 
-    msg.local_pose.position = estimation_diagnostics->pose.position;
-    msg.local_pose.heading = local_heading->value;
-    msg.above_ground_level_height = estimation_diagnostics->agl_height;
+    mrs_robot_diagnostics::StateEstimationInfo msg = init_msg;
 
-    msg.global_pose.position.x = global_position->latitude;
-    msg.global_pose.position.y = global_position->longitude;
-    msg.global_pose.position.z = global_position->altitude;
-    msg.global_pose.heading = global_heading->value;
+    const bool is_estimation_diagnostics_valid = estimation_diagnostics != nullptr;
+    const bool is_local_heading_valid = local_heading != nullptr;
+    const bool is_global_position_valid = global_position != nullptr;
+    const bool is_global_heading_valid = global_heading != nullptr;
 
-    msg.velocity = estimation_diagnostics->velocity;
-    msg.acceleration = estimation_diagnostics->acceleration;
+    if (is_estimation_diagnostics_valid){
+      msg.header = estimation_diagnostics->header;
 
-    if (!estimation_diagnostics->running_state_estimators.empty())
-      msg.current_estimator = estimation_diagnostics->running_state_estimators.at(0);
+      msg.local_pose.position = estimation_diagnostics->pose.position;
+      msg.above_ground_level_height = estimation_diagnostics->agl_height;
 
-    msg.running_estimators = estimation_diagnostics->running_state_estimators;
-    msg.switchable_estimators = estimation_diagnostics->switchable_state_estimators;
+      msg.velocity = estimation_diagnostics->velocity;
+      msg.acceleration = estimation_diagnostics->acceleration;
+
+      if (!estimation_diagnostics->running_state_estimators.empty())
+        msg.current_estimator = estimation_diagnostics->running_state_estimators.at(0);
+
+      msg.running_estimators = estimation_diagnostics->running_state_estimators;
+      msg.switchable_estimators = estimation_diagnostics->switchable_state_estimators;
+    }
+
+    if (is_local_heading_valid)
+      msg.local_pose.heading = local_heading->value;
+
+    if (is_global_position_valid){
+      msg.global_pose.position.x = global_position->latitude;
+      msg.global_pose.position.y = global_position->longitude;
+      msg.global_pose.position.z = global_position->altitude;
+    }
+
+    if (is_global_heading_valid)
+      msg.global_pose.heading = global_heading->value;
 
     return msg;
   }
@@ -605,13 +632,21 @@ namespace mrs_robot_diagnostics
   mrs_robot_diagnostics::ControlInfo StateMonitor::parse_control_info(mrs_msgs::ControlManagerDiagnostics::ConstPtr control_manager_diagnostics,
                                                                       std_msgs::Float64::ConstPtr thrust)
   {
-    mrs_robot_diagnostics::ControlInfo msg;
 
-    msg.active_controller = control_manager_diagnostics->active_controller;
-    msg.available_controllers = control_manager_diagnostics->available_controllers;
-    msg.active_tracker = control_manager_diagnostics->active_tracker;
-    msg.available_trackers = control_manager_diagnostics->available_trackers;
-    msg.thrust = thrust->data;
+    mrs_robot_diagnostics::ControlInfo msg = init_control_info();
+
+    const bool is_control_manager_diagnostics_valid = control_manager_diagnostics != nullptr;
+    const bool is_thrust_valid = thrust != nullptr;
+    
+    if (is_control_manager_diagnostics_valid){
+      msg.active_controller = control_manager_diagnostics->active_controller;
+      msg.available_controllers = control_manager_diagnostics->available_controllers;
+      msg.active_tracker = control_manager_diagnostics->active_tracker;
+      msg.available_trackers = control_manager_diagnostics->available_trackers;
+    }
+
+    if (is_thrust_valid)
+      msg.thrust = thrust->data;
 
     return msg;
   }
@@ -622,11 +657,15 @@ namespace mrs_robot_diagnostics
 
   mrs_robot_diagnostics::CollisionAvoidanceInfo StateMonitor::parse_collision_avoidance_info(mrs_msgs::MpcTrackerDiagnostics::ConstPtr mpc_tracker_diagnostics)
   {
-    mrs_robot_diagnostics::CollisionAvoidanceInfo msg;
+    mrs_robot_diagnostics::CollisionAvoidanceInfo msg = init_collision_avoidance_info();
 
-    msg.collision_avoidance_enabled = mpc_tracker_diagnostics->collision_avoidance_active;
-    msg.avoiding_collision = mpc_tracker_diagnostics->avoiding_collision;
-    msg.other_robots_visible = mpc_tracker_diagnostics->avoidance_active_uavs;
+    const bool is_mpc_tracker_diagnostics_valid = mpc_tracker_diagnostics != nullptr;
+
+    if (is_mpc_tracker_diagnostics_valid){
+      msg.collision_avoidance_enabled = mpc_tracker_diagnostics->collision_avoidance_active;
+      msg.avoiding_collision = mpc_tracker_diagnostics->avoiding_collision;
+      msg.other_robots_visible = mpc_tracker_diagnostics->avoidance_active_uavs;
+    }
 
     return msg;
   }
@@ -636,17 +675,30 @@ namespace mrs_robot_diagnostics
   /* parse_uav_info() //{ */
 
   mrs_robot_diagnostics::UavInfo StateMonitor::parse_uav_info(mrs_msgs::HwApiStatus::ConstPtr hw_api_status, mrs_msgs::UavStatus::ConstPtr uav_status,
-                                                              std_msgs::Float64::ConstPtr mass_nominal, std_msgs::Float64::ConstPtr mass_estimate,
-                                                              uav_state_t uav_state)
+                                                              std_msgs::Float64::ConstPtr mass_nominal, std_msgs::Float64::ConstPtr mass_estimate)
   {
-    mrs_robot_diagnostics::UavInfo msg;
+    mrs_robot_diagnostics::UavInfo msg = init_uav_info();
 
-    msg.armed = hw_api_status->armed;
-    msg.offboard = hw_api_status->offboard;
-    msg.flight_duration = uav_status->secs_flown;
-    msg.flight_state = to_string(uav_state);
-    msg.mass_nominal = mass_nominal->data;
-    msg.mass_estimate = mass_estimate->data;
+    const bool is_hw_api_status_valid = hw_api_status != nullptr;
+    const bool is_uav_status_valid = uav_status != nullptr;
+    const bool is_mass_nominal_valid = mass_nominal != nullptr;
+    const bool is_mass_estimate_valid = mass_estimate != nullptr;
+
+    if (is_hw_api_status_valid){
+      msg.armed = hw_api_status->armed;
+      msg.offboard = hw_api_status->offboard;
+    }
+
+    if (is_uav_status_valid)
+      msg.flight_duration = uav_status->secs_flown;
+
+    msg.flight_state = to_string(uav_state_.value());
+    
+    if (is_mass_nominal_valid)
+      msg.mass_nominal = mass_nominal->data;
+
+    if (is_mass_estimate_valid)
+      msg.mass_estimate = mass_estimate->data;
 
     return msg;
   }
@@ -658,36 +710,37 @@ namespace mrs_robot_diagnostics
                                                                                  sensor_msgs::NavSatFix::ConstPtr gnss,
                                                                                  sensor_msgs::MagneticField::ConstPtr magnetic_field)
   {
-    mrs_robot_diagnostics::SystemHealthInfo msg;
+    mrs_robot_diagnostics::SystemHealthInfo msg = init_system_health_info();
 
-    msg.cpu_load = uav_status->cpu_load;
-    msg.free_ram = uav_status->free_ram;
-    msg.total_ram = uav_status->total_ram;
-    msg.free_hdd = uav_status->free_hdd;
-    const size_t n = std::min(uav_status->node_cpu_loads.cpu_loads.size(), uav_status->node_cpu_loads.node_names.size());
-    for (int it = 0; it < n; it++)
-    {
-      mrs_robot_diagnostics::NodeCpuLoad node_cpu_load;
-      node_cpu_load.node_name = uav_status->node_cpu_loads.node_names.at(it);
-      node_cpu_load.cpu_load = uav_status->node_cpu_loads.cpu_loads.at(it);
-      msg.node_cpu_loads.push_back(node_cpu_load);
+    const bool is_uav_status_valid = uav_status != nullptr;
+    const bool is_gnss_valid = gnss != nullptr;
+    const bool is_magnetic_field_valid = magnetic_field != nullptr;
+
+    if (is_uav_status_valid){
+      msg.cpu_load = uav_status->cpu_load;
+      msg.free_ram = uav_status->free_ram;
+      msg.total_ram = uav_status->total_ram;
+      msg.free_hdd = uav_status->free_hdd;
+      const size_t n = std::min(uav_status->node_cpu_loads.cpu_loads.size(), uav_status->node_cpu_loads.node_names.size());
+      for (int it = 0; it < n; it++)
+      {
+        mrs_robot_diagnostics::NodeCpuLoad node_cpu_load;
+        node_cpu_load.node_name = uav_status->node_cpu_loads.node_names.at(it);
+        node_cpu_load.cpu_load = uav_status->node_cpu_loads.cpu_loads.at(it);
+        msg.node_cpu_loads.push_back(node_cpu_load);
+      }
+
+      msg.hw_api_rate = uav_status->hw_api_hz;
+      msg.control_manager_rate = uav_status->control_manager_diag_hz;
+      msg.state_estimation_rate = uav_status->odom_hz;
     }
 
-    msg.hw_api_rate = uav_status->hw_api_hz;
-    msg.control_manager_rate = uav_status->control_manager_diag_hz;
-    msg.state_estimation_rate = uav_status->odom_hz;
-
-    {
+    if (is_gnss_valid){
       const Eigen::Matrix3d cov = cov2eigen(gnss->position_covariance);
       msg.gnss_uncertainty = std::cbrt(cov.determinant());
     }
 
-    if (magnetic_field == nullptr)
-    {
-      msg.mag_strength = -1;
-      msg.mag_uncertainty = -1;
-    } else
-    {
+    if (is_magnetic_field_valid){
       const Eigen::Vector3d field(magnetic_field->magnetic_field.x, magnetic_field->magnetic_field.y, magnetic_field->magnetic_field.z);
       msg.mag_strength = field.norm();
       const Eigen::Matrix3d cov = cov2eigen(magnetic_field->magnetic_field_covariance);
