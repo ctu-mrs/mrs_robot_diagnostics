@@ -147,7 +147,7 @@ namespace mrs_robot_diagnostics
     void cbk_errorgraph_element(const mrs_errorgraph::ErrorgraphElement::ConstPtr element_msg);
 
     // | ------------------ Additional functions ------------------ |
-    std::vector<std::string> parseComponentsInString(const std::string& input);
+    std::vector<std::string> extractComponents(const std::string& input);
     
       template <typename sh_T>
     subscriptionResult_t<sh_T> processIncomingMessage(mrs_lib::SubscribeHandler<sh_T>& sh); 
@@ -233,7 +233,7 @@ namespace mrs_robot_diagnostics
     ss_msg.rate = -1;
     ss_msg.status = "NOT_IMPLEMENTED";
 
-    std::vector<std::string> components = parseComponentsInString(available_sensors_string);
+    std::vector<std::string> components = extractComponents(available_sensors_string);
     for (const auto& comp : components) {
       ss_msg.name = comp;
       available_sensors_.push_back(ss_msg);
@@ -425,33 +425,24 @@ namespace mrs_robot_diagnostics
   }
   //}
 
-  /* parseComponentsInString() //{ */
-  std::vector<std::string> StateMonitor::parseComponentsInString(const std::string& input) {
-    std::string trimmed = input;
-  
-    // Remove the square brackets
-    if (!trimmed.empty() && trimmed.front() == '[')
-      trimmed.erase(trimmed.begin());
-    if (!trimmed.empty() && trimmed.back() == ']')
-      trimmed.pop_back();
-  
+  /* extractComponents() //{ */
+  std::vector<std::string> StateMonitor::extractComponents(const std::string& input) {
     std::vector<std::string> result;
-    std::stringstream ss(trimmed);
+    std::stringstream ss(input);
     std::string item;
-  
-    // Split by comma
+
     while (std::getline(ss, item, ',')) {
-      // Trim leading/trailing whitespace
+      // Trim whitespace
       item.erase(item.begin(), std::find_if(item.begin(), item.end(), [](unsigned char ch) {
             return !std::isspace(ch);
             }));
       item.erase(std::find_if(item.rbegin(), item.rend(), [](unsigned char ch) {
             return !std::isspace(ch);
             }).base(), item.end());
-  
+
       result.push_back(item);
     }
-  
+
     return result;
   }
   //}
