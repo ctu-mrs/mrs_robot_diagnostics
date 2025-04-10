@@ -234,6 +234,7 @@ namespace mrs_robot_diagnostics
     ss_msg.status = "NOT_IMPLEMENTED";
 
     std::vector<std::string> components = extractComponents(available_sensors_string);
+    ROS_INFO("[StateMonitor]: components size: %zu", components.size());
     for (const auto& comp : components) {
       ss_msg.name = comp;
       available_sensors_.push_back(ss_msg);
@@ -431,18 +432,10 @@ namespace mrs_robot_diagnostics
     std::stringstream ss(input);
     std::string item;
 
-    while (std::getline(ss, item, ',')) {
-      // Trim whitespace
-      item.erase(item.begin(), std::find_if(item.begin(), item.end(), [](unsigned char ch) {
-            return !std::isspace(ch);
-            }));
-      item.erase(std::find_if(item.rbegin(), item.rend(), [](unsigned char ch) {
-            return !std::isspace(ch);
-            }).base(), item.end());
-
+   // stream extraction operator automatically skips delimiters
+   while (ss >> item) {
       result.push_back(item);
     }
-
     return result;
   }
   //}
