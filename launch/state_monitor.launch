@@ -4,6 +4,7 @@
   <arg name="UAV_NAME" default="$(optenv UAV_NAME uav1)" />
   <arg name="UAV_TYPE" default="$(env UAV_TYPE)" />
   <arg name="ROBOT_TYPE" default="$(optenv ROBOT_TYPE multirotor)" />
+  <arg name="SENSORS" default="$(env SENSORS)" />
 
   <arg name="custom_config" default="" />
 
@@ -27,6 +28,7 @@
 
       <param name="robot_name" value="$(arg UAV_NAME)" />
       <param name="robot_type" value="$(arg ROBOT_TYPE)" />
+      <param name="available_sensors" value="$(arg SENSORS)" />
 
       <param name="config" value="$(find mrs_robot_diagnostics)/config/state_monitor_config.yaml" />
 
