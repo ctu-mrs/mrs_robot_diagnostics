@@ -44,6 +44,7 @@
 #include "mrs_robot_diagnostics/enums/tracker_state.h"
 #include "mrs_robot_diagnostics/enums/enum_helpers.h"
 
+#include <mrs_lib/geometry/cyclic.h>
 //}
 
 namespace mrs_robot_diagnostics
@@ -628,7 +629,7 @@ namespace mrs_robot_diagnostics
     const bool is_global_position_valid = global_position != nullptr;
     const bool is_global_heading_valid = global_heading != nullptr;
 
-    if (is_estimation_diagnostics_valid){
+    if (is_estimation_diagnostics_valid) {
       msg.header = estimation_diagnostics->header;
 
       msg.local_pose.position = estimation_diagnostics->pose.position;
@@ -638,23 +639,32 @@ namespace mrs_robot_diagnostics
       msg.acceleration = estimation_diagnostics->acceleration;
 
       if (!estimation_diagnostics->running_state_estimators.empty())
-        msg.current_estimator = estimation_diagnostics->running_state_estimators.at(0);
+        msg.current_estimator =
+            estimation_diagnostics->running_state_estimators.at(0);
 
       msg.running_estimators = estimation_diagnostics->running_state_estimators;
-      msg.switchable_estimators = estimation_diagnostics->switchable_state_estimators;
+      msg.switchable_estimators =
+          estimation_diagnostics->switchable_state_estimators;
     }
 
     if (is_local_heading_valid)
       msg.local_pose.heading = local_heading->value;
 
-    if (is_global_position_valid){
+    if (is_global_position_valid) {
       msg.global_pose.position.x = global_position->latitude;
       msg.global_pose.position.y = global_position->longitude;
       msg.global_pose.position.z = global_position->altitude;
     }
 
-    if (is_global_heading_valid)
-      msg.global_pose.heading = global_heading->value;
+    if (is_global_heading_valid) {
+      // Converting the value from MAVROS msg in degrees into radians for
+      // consistency with other values.
+      auto global_heading_rad =
+          mrs_lib::geometry::degrees::convert<mrs_lib::geometry::sradians>(
+              global_heading->value);
+
+      msg.global_pose.heading = global_heading_rad.value();
+    }
 
     return msg;
   }
