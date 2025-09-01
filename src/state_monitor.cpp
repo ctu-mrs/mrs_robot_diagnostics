@@ -40,7 +40,6 @@
 #include <mrs_robot_diagnostics/SystemHealthInfo.h>
 
 #include "mrs_robot_diagnostics/enums/uav_state.h"
-#include "mrs_robot_diagnostics/enums/robot_type.h"
 #include "mrs_robot_diagnostics/enums/tracker_state.h"
 #include "mrs_robot_diagnostics/enums/enum_helpers.h"
 
@@ -79,6 +78,8 @@ namespace mrs_robot_diagnostics
 
     std::string _robot_name_;
     int _robot_type_id_;
+
+    std::vector<mrs_robot_diagnostics::SensorStatus> available_sensors_;
 
     // Robot type mapping
     std::map<std::string, int> robot_type_id_map_ = {
@@ -145,7 +146,9 @@ namespace mrs_robot_diagnostics
     void cbk_errorgraph_element(const mrs_errorgraph::ErrorgraphElement::ConstPtr element_msg);
 
     // | ------------------ Additional functions ------------------ |
-    template <typename sh_T>
+    std::vector<std::string> extractComponents(const std::string& input);
+    
+      template <typename sh_T>
     subscriptionResult_t<sh_T> processIncomingMessage(mrs_lib::SubscribeHandler<sh_T>& sh); 
    
     tracker_state_t parse_tracker_state(mrs_msgs::ControlManagerDiagnostics::ConstPtr control_manager_diagnostics);
@@ -215,11 +218,27 @@ namespace mrs_robot_diagnostics
     const auto uav_state_timer_rate = param_loader.loadParam2<double>("uav_state_timer_rate");
     not_reporting_delay_ = param_loader.loadParam2<ros::Duration>("not_reporting_delay");
 
+    std::string available_sensors_string;
+    param_loader.loadParam("available_sensors", available_sensors_string);
+
     if (!param_loader.loadedSuccessfully())
     {
       ROS_ERROR("[StateMonitor]: Could not load all parameters!");
       ros::shutdown();
     }
+
+    mrs_robot_diagnostics::SensorStatus ss_msg;
+    ss_msg.ready = true;
+    ss_msg.rate = -1;
+    ss_msg.status = "NOT_IMPLEMENTED";
+
+    std::vector<std::string> components = extractComponents(available_sensors_string);
+    ROS_INFO("[StateMonitor]: components size: %zu", components.size());
+    for (const auto& comp : components) {
+      ss_msg.name = comp;
+      available_sensors_.push_back(ss_msg);
+    }
+
 
     // | ----------------------- subscribers ---------------------- |
 
@@ -403,6 +422,20 @@ namespace mrs_robot_diagnostics
       for (int c = 0; c < 3; c++)
         cov(r, c) = msg_cov.at(r + 3 * c);
     return cov;
+  }
+  //}
+
+  /* extractComponents() //{ */
+  std::vector<std::string> StateMonitor::extractComponents(const std::string& input) {
+    std::vector<std::string> result;
+    std::stringstream ss(input);
+    std::string item;
+
+   // stream extraction operator automatically skips delimiters
+   while (ss >> item) {
+      result.push_back(item);
+    }
+    return result;
   }
   //}
 
@@ -594,7 +627,7 @@ namespace mrs_robot_diagnostics
     const bool is_global_position_valid = global_position != nullptr;
     const bool is_global_heading_valid = global_heading != nullptr;
 
-    if (is_estimation_diagnostics_valid){
+    if (is_estimation_diagnostics_valid) {
       msg.header = estimation_diagnostics->header;
 
       msg.local_pose.position = estimation_diagnostics->pose.position;
@@ -604,23 +637,25 @@ namespace mrs_robot_diagnostics
       msg.acceleration = estimation_diagnostics->acceleration;
 
       if (!estimation_diagnostics->running_state_estimators.empty())
-        msg.current_estimator = estimation_diagnostics->running_state_estimators.at(0);
+        msg.current_estimator =
+            estimation_diagnostics->running_state_estimators.at(0);
 
       msg.running_estimators = estimation_diagnostics->running_state_estimators;
-      msg.switchable_estimators = estimation_diagnostics->switchable_state_estimators;
+      msg.switchable_estimators =
+          estimation_diagnostics->switchable_state_estimators;
     }
 
     if (is_local_heading_valid)
       msg.local_pose.heading = local_heading->value;
 
-    if (is_global_position_valid){
+    if (is_global_position_valid) {
       msg.global_pose.position.x = global_position->latitude;
       msg.global_pose.position.y = global_position->longitude;
       msg.global_pose.position.z = global_position->altitude;
     }
 
-    if (is_global_heading_valid)
-      msg.global_pose.heading = global_heading->value;
+    if (is_global_heading_valid) 
+       msg.global_pose.heading = global_heading->value;
 
     return msg;
   }
@@ -747,14 +782,7 @@ namespace mrs_robot_diagnostics
       msg.mag_uncertainty = std::cbrt(cov.determinant());
     }
 
-    // TODO: required sensors from estimation manager
-    mrs_robot_diagnostics::SensorStatus ss_msg;
-    ss_msg.name = "NOT_IMPLEMENTED";
-    ss_msg.ready = false;
-    ss_msg.rate = -1;
-    ss_msg.status = "NOT_IMPLEMENTED";
-
-    msg.required_sensors.push_back(ss_msg);
+    msg.available_sensors = available_sensors_;
 
     return msg;
   }

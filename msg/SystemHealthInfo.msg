@@ -13,4 +13,4 @@ float32 gnss_uncertainty        # [m]
 float32 mag_strength            # [T]
 float32 mag_uncertainty         # [T]
 
-mrs_robot_diagnostics/SensorStatus[] required_sensors
+mrs_robot_diagnostics/SensorStatus[] available_sensors
