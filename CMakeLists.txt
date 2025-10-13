@@ -65,6 +65,10 @@ add_library(MRSRobotDiagnostics_StateMonitor
   src/state_monitor.cpp
   )
 
+  add_library(MRSRobotDiagnostics_CameraHandler
+  src/sensor_handler_plugins/camera_handler.cpp
+)
+
 add_dependencies(MRSRobotDiagnostics_StateMonitor
   ${${PROJECT_NAME}_EXPORTED_TARGETS}
   ${catkin_EXPORTED_TARGETS}
