@@ -9,6 +9,8 @@
 #include <std_msgs/Bool.h>
 #include <sensor_msgs/BatteryState.h>
 
+#include <pluginlib/class_loader.h>
+#include <mrs_robot_diagnostics/sensor_handler.h>
 #include <mrs_lib/param_loader.h>
 #include <mrs_lib/mutex.h>
 #include <mrs_lib/subscribe_handler.h>
@@ -47,8 +49,21 @@
 
 namespace mrs_robot_diagnostics
 {
+class SensorHandlerParams {
 
-  /* class StateMonitor //{ */
+public:
+  SensorHandlerParams(const std::string &address, const std::string &name_space, const std::string &sensor_name, const std::string &type, const std::string &topic)
+      : address(address), name_space(name_space), sensor_name(sensor_name), type(type), topic(topic) {}
+
+public:
+  std::string address;
+  std::string name_space;
+  std::string sensor_name;
+  std::string type;
+  std::string topic;
+};
+
+/* class StateMonitor //{ */
 
   class StateMonitor : public nodelet::Nodelet
   {
@@ -135,11 +150,21 @@ namespace mrs_robot_diagnostics
     // | ------------------------ UAV state ----------------------- |
     ros::Publisher pub_uav_state_;
 
+    std::unique_ptr<pluginlib::ClassLoader<mrs_robot_diagnostics::sensor_handlers::SensorHandler>>
+        sensor_handler_loader_;                                         // pluginlib loader of dynamically loaded sensor handlers
+    std::vector<std::string> _sensor_handler_names_;                    // list of sensor handlers names
+    std::map<std::string, SensorHandlerParams> sensor_handlers_params_; // map between sensor handler names and params
+    std::vector<boost::shared_ptr<mrs_robot_diagnostics::sensor_handlers::SensorHandler>>
+        sensor_handlers_; // list of sensor handlers, routines are callable from this
+    std::mutex mutex_sensor_handler_list_;
+
     // | ----------------------- main timer ----------------------- |
 
     ros::Timer timer_main_;
     ros::Timer timer_uav_state_;
+    ros::Timer timer_update_sensor_status_;
     void timerMain(const ros::TimerEvent& event);
+    void timerUpdateSensorStatus(const ros::TimerEvent& event);
     void timerUavState(const ros::TimerEvent& event);
 
     // | ------------------------ Callbacks ----------------------- |
@@ -214,15 +239,76 @@ namespace mrs_robot_diagnostics
       ROS_ERROR_STREAM("[IROCBridge]: Unknown robot_type: " << robot_type);
     }
 
-    const auto main_timer_rate = param_loader.loadParam2<double>("main_timer_rate");
-    const auto uav_state_timer_rate = param_loader.loadParam2<double>("uav_state_timer_rate");
-    not_reporting_delay_ = param_loader.loadParam2<ros::Duration>("not_reporting_delay");
+    const auto main_timer_rate = param_loader.loadParam2<double>("robot_diagnostics/main_timer_rate");
+    const auto uav_state_timer_rate = param_loader.loadParam2<double>("robot_diagnostics/uav_state_timer_rate");
+    not_reporting_delay_ = param_loader.loadParam2<ros::Duration>("robot_diagnostics/not_reporting_delay");
 
     std::string available_sensors_string;
     param_loader.loadParam("available_sensors", available_sensors_string);
+    param_loader.setPrefix("robot_diagnostics/sensor_handlers/");
+    const auto update_status_rate = param_loader.loadParam2<double>("update_timer_rate");
 
-    if (!param_loader.loadedSuccessfully())
+    param_loader.loadParam("sensor_handler_names", _sensor_handler_names_);
+
+    sensor_handler_loader_ = std::make_unique<pluginlib::ClassLoader<mrs_robot_diagnostics::sensor_handlers::SensorHandler>>(
+        "mrs_robot_diagnostics", "mrs_robot_diagnostics::sensor_handlers::SensorHandler");
+
+    // for each plugin in the list
+    for (int i = 0; i < int(_sensor_handler_names_.size()); i++) {
+      std::string sensor_handler_name = _sensor_handler_names_[i];
+
+      // load the plugin parameters
+      std::string address;
+      std::string name_space;
+      std::string sensor_name;
+      std::string type;
+      std::string topic;
+
+      param_loader.loadParam(sensor_handler_name + "/address", address);
+      param_loader.loadParam(sensor_handler_name + "/name", sensor_name);
+      param_loader.loadParam(sensor_handler_name + "/type", type);
+      param_loader.loadParam(sensor_handler_name + "/topic", topic);
+
+      SensorHandlerParams new_sensor_handler(address, _robot_name_, sensor_name, type, topic);
+      sensor_handlers_params_.insert(std::pair<std::string, SensorHandlerParams>(sensor_handler_name, new_sensor_handler));
+
+      try {
+        ROS_INFO("[StateMonitor]: loading the sensor handler '%s'", new_sensor_handler.address.c_str());
+        sensor_handlers_.push_back(sensor_handler_loader_->createInstance(new_sensor_handler.address.c_str()));
+      }
+      catch (pluginlib::CreateClassException &ex1) {
+        ROS_ERROR("[StateMonitor]: CreateClassException for the sensor handler '%s'", new_sensor_handler.address.c_str());
+        ROS_ERROR("[StateMonitor]: Error: %s", ex1.what());
+        ros::shutdown();
+      }
+      catch (pluginlib::PluginlibException &ex) {
+        ROS_ERROR("[StateMonitor]: PluginlibException for the sensor handler '%s'", new_sensor_handler.address.c_str());
+        ROS_ERROR("[StateMonitor]: Error: %s", ex.what());
+        ros::shutdown();
+      }
+    }
+
+    ROS_INFO("[IROCFleetManager]: sensor handlers were loaded");
     {
+      for (int i = 0; i < int(sensor_handlers_.size()); i++) {
+        try {
+          std::map<std::string, SensorHandlerParams>::iterator it;
+          it = sensor_handlers_params_.find(_sensor_handler_names_[i]);
+
+          ROS_INFO("[IROCFleetManager]: initializing the sensor handler'%s'", it->second.address.c_str());
+          sensor_handlers_[i]->initialize(nh_, it->second.sensor_name, it->second.name_space, it->second.topic);
+        }
+        catch (std::runtime_error &ex) {
+          ROS_ERROR("[IROCFleetManager]: exception caught during sensor handler "
+                    "initialization: '%s'",
+                    ex.what());
+        }
+      }
+    }
+
+    ROS_INFO("[StateMonitor]: sensor handlers were initialized");
+
+    if (!param_loader.loadedSuccessfully()) {
       ROS_ERROR("[StateMonitor]: Could not load all parameters!");
       ros::shutdown();
     }
@@ -299,6 +385,7 @@ namespace mrs_robot_diagnostics
     // | ------------------------- timers ------------------------- |
 
     timer_main_ = nh_.createTimer(ros::Rate(main_timer_rate), &StateMonitor::timerMain, this);
+    timer_update_sensor_status_ = nh_.createTimer(ros::Rate(update_status_rate), &StateMonitor::timerUpdateSensorStatus, this);
     timer_uav_state_ = nh_.createTimer(ros::Rate(uav_state_timer_rate), &StateMonitor::timerUavState, this);
 
     // | --------------------- finish the init -------------------- |
@@ -401,6 +488,17 @@ namespace mrs_robot_diagnostics
   }
 
   //}
+
+  void StateMonitor::timerUpdateSensorStatus([[maybe_unused]] const ros::TimerEvent &event) {
+    // TODO mutex to protect
+    // std::scoped_lock lck(robot_handlers_.mtx);
+    available_sensors_.clear();
+    for (auto &handler : sensor_handlers_) {
+      mrs_robot_diagnostics::SensorStatus ss_msg;
+      handler->updateStatus(ss_msg);
+      available_sensors_.push_back(ss_msg);
+    }
+  }
 
   // | ------------------------ callbacks ----------------------- |
   
@@ -913,7 +1011,7 @@ namespace mrs_robot_diagnostics
   }
   //}
 
-}  // namespace mrs_robot_diagnostics
+  } // namespace mrs_robot_diagnostics
 
 #include <pluginlib/class_list_macros.h>
 PLUGINLIB_EXPORT_CLASS(mrs_robot_diagnostics::StateMonitor, nodelet::Nodelet);

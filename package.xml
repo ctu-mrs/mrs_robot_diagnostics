@@ -21,9 +21,11 @@
   <depend>mrs_msgs</depend>
   <depend>mrs_lib</depend>
   <depend>mrs_errorgraph</depend>
+  <depend>pluginlib</depend>
 
   <export>
     <nodelet plugin="${prefix}/nodelets.xml" />
+    <mrs_robot_diagnostics plugin="${prefix}/plugins.xml" />
   </export>
 
 </package>

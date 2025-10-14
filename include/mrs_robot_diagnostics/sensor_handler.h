@@ -1,6 +1,7 @@
 #pragma once
 #include <ros/ros.h>
 #include <mrs_robot_diagnostics/SensorStatus.h>
+#include <mrs_lib/subscribe_handler.h>
 
 
 namespace mrs_robot_diagnostics
@@ -11,12 +12,26 @@ namespace sensor_handlers
 
 class SensorHandler {
 public:
-  virtual bool initialize(const ros::NodeHandle &nh, const std::string &name, const std::string &name_space) = 0;
+  virtual bool initialize(const ros::NodeHandle &nh, const std::string &name, const std::string &name_space, const std::string &topic) = 0;
 
   virtual void updateStatus(mrs_robot_diagnostics::SensorStatus &ss_msg) = 0;
 
   virtual ~SensorHandler() = default;
 
+protected:
+  ros::Time last_msg_time_;
+
+  double calculateRate(const ros::Time &current_msg_time) {
+    if (last_msg_time_.isZero()) {
+      last_msg_time_ = current_msg_time;
+      return -1.0;
+    }
+
+    double dt      = (current_msg_time - last_msg_time_).toSec();
+    last_msg_time_ = current_msg_time;
+
+    return (dt > 0.0) ? (1.0 / dt) : -1.0;
+  }
 };
 
 } // namespace sensor_handlers
