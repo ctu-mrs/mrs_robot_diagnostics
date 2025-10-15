@@ -20,6 +20,7 @@ public:
 
 protected:
   ros::Time last_msg_time_;
+  double current_rate_;
 
   double calculateRate(const ros::Time &current_msg_time) {
     if (last_msg_time_.isZero()) {
@@ -31,6 +32,27 @@ protected:
     last_msg_time_ = current_msg_time;
 
     return (dt > 0.0) ? (1.0 / dt) : -1.0;
+  }
+
+  // Helper function to create a subscriber with rate calculation of the main topic
+  template <typename MessageType>
+  mrs_lib::SubscribeHandler<MessageType> createSubscriber(ros::NodeHandle &nh, const std::string &topic_name,
+                                                          const ros::Duration &timeout = mrs_lib::no_timeout) {
+
+    mrs_lib::SubscribeHandlerOptions shopts;
+    shopts.nh                 = nh;
+    shopts.node_name          = "StateMonitor";
+    shopts.no_message_timeout = mrs_lib::no_timeout;
+    shopts.threadsafe         = true;
+    shopts.autostart          = true;
+    shopts.queue_size         = 10;
+    shopts.transport_hints    = ros::TransportHints().tcpNoDelay();
+
+    auto callback = [this](const typename MessageType::ConstPtr& msg) {
+      current_rate_ = calculateRate(msg->header.stamp);
+    };
+
+    return mrs_lib::SubscribeHandler<MessageType>(shopts, topic_name, callback);
   }
 };
 

@@ -26,14 +26,15 @@ bool CameraHandler::initialize(const ros::NodeHandle &nh, const std::string &nam
   shopts.queue_size         = 10;
   shopts.transport_hints    = ros::TransportHints().tcpNoDelay();
 
-  const std::string camera_info_topic_name = "/" + name_space + topic + "camera_info";
-  sh_camera_info_                          = mrs_lib::SubscribeHandler<sensor_msgs::CameraInfo>(shopts, camera_info_topic_name);
-
   // TODO to remap of take a new parameter
-  const std::string image_topic_name = "/" + name_space + topic + "image_raw"; 
-  sh_image_                          = mrs_lib::SubscribeHandler<sensor_msgs::Image>(shopts, image_topic_name);
+  const std::string image_topic_name = "/" + name_space + topic + "image_raw";
+  sh_image_ = createSubscriber<sensor_msgs::Image>(nh_, image_topic_name);
 
-  // Initialize camera handler
+  // Don't use rate calculation helper for camera info
+  const std::string camera_info_topic_name = "/" + name_space + topic + "camera_info";
+  sh_camera_info_ = mrs_lib::SubscribeHandler<sensor_msgs::CameraInfo>(shopts, camera_info_topic_name);
+
+  
   ROS_INFO("Camera handler '%s' initialized in namespace '%s'", name.c_str(), name_space.c_str());
   is_initialized_ = true;
   return true;
@@ -41,7 +42,7 @@ bool CameraHandler::initialize(const ros::NodeHandle &nh, const std::string &nam
 
 void CameraHandler::updateStatus(mrs_robot_diagnostics::SensorStatus &ss_msg) {
   ss_msg.name = _name_;
-  ss_msg.type = mrs_robot_diagnostics::SensorStatus::TYPE_CAMERA; 
+  ss_msg.type = mrs_robot_diagnostics::SensorStatus::TYPE_CAMERA;
 
   if (!is_initialized_) {
     ss_msg.ready  = false;
@@ -51,8 +52,8 @@ void CameraHandler::updateStatus(mrs_robot_diagnostics::SensorStatus &ss_msg) {
   }
 
   if (sh_camera_info_.hasMsg()) {
-    auto msg    = sh_camera_info_.getMsg();
-    ss_msg.rate = calculateRate(msg->header.stamp);
+
+    ss_msg.rate = current_rate_; 
 
     bool has_image = sh_image_.hasMsg();
     ss_msg.ready   = has_image;
