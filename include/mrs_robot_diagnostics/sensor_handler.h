@@ -2,7 +2,9 @@
 #include <ros/ros.h>
 #include <mrs_robot_diagnostics/SensorStatus.h>
 #include <mrs_lib/subscribe_handler.h>
-
+#include <mrs_lib/publisher_handler.h>
+#include <nlohmann/json.hpp>
+// #include <iroc_fleet_manager/utils/json_var_parser.h>
 
 namespace mrs_robot_diagnostics
 {
@@ -10,9 +12,11 @@ namespace mrs_robot_diagnostics
 namespace sensor_handlers
 {
 
+using json = nlohmann::json;
+
 class SensorHandler {
 public:
-  virtual bool initialize(const ros::NodeHandle &nh, const std::string &name, const std::string &name_space, const std::string &topic) = 0;
+  virtual bool initialize(ros::NodeHandle &nh, const std::string &name, const std::string &name_space, const std::string &topic) = 0;
 
   virtual void updateStatus(mrs_robot_diagnostics::SensorStatus &ss_msg) = 0;
 

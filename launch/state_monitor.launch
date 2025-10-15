@@ -44,6 +44,7 @@
       <remap from="~out/uav_info" to="~/uav_info" />
       <remap from="~out/system_health_info" to="~/system_health_info" />
       <remap from="~out/uav_state" to="~/uav_state" />
+      <remap from="~out/sensor_info" to="~/sensor_info" />
 
       <!-- Subscribers -->
       <remap from="~in/automatic_start_can_takeoff" to="automatic_start/can_takeoff" />

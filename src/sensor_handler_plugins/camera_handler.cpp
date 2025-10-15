@@ -1,4 +1,3 @@
-
 #include <mrs_robot_diagnostics/sensor_plugins/camera_handler.h>
 
 namespace mrs_robot_diagnostics
@@ -10,7 +9,7 @@ namespace sensor_handlers
 namespace camera_handler
 {
 
-bool CameraHandler::initialize(const ros::NodeHandle &nh, const std::string &name, const std::string &name_space, const std::string &topic) {
+bool CameraHandler::initialize(ros::NodeHandle &nh, const std::string &name, const std::string &name_space, const std::string &topic) {
   ros::NodeHandle nh_(nh, name_space);
   _name_  = name;
   _topic_ = topic;
@@ -34,7 +33,12 @@ bool CameraHandler::initialize(const ros::NodeHandle &nh, const std::string &nam
   const std::string camera_info_topic_name = "/" + name_space + topic + "camera_info";
   sh_camera_info_ = mrs_lib::SubscribeHandler<sensor_msgs::CameraInfo>(shopts, camera_info_topic_name);
 
-  
+  const std::string camera_orientation_topic_name = "/" + name_space + topic + "orientation";
+  sh_camera_orientation_ = mrs_lib::SubscribeHandler<std_msgs::Float32MultiArray>(shopts, camera_orientation_topic_name);
+
+  // Camera details
+  ph_camera_details_= mrs_lib::PublisherHandler<mrs_robot_diagnostics::SensorInfo>(nh, "out/sensor_info", 1, true); 
+
   ROS_INFO("Camera handler '%s' initialized in namespace '%s'", name.c_str(), name_space.c_str());
   is_initialized_ = true;
   return true;
@@ -68,6 +72,22 @@ void CameraHandler::updateStatus(mrs_robot_diagnostics::SensorStatus &ss_msg) {
     ss_msg.rate   = -1;
     ss_msg.status = "NO_CAMERA_INFO";
   }
+
+  json json_msg = {
+      {"name", _name_},
+      {"type", "camera"},
+      {"status", ss_msg.status},
+      {"ready", ss_msg.ready},
+      {"rate", ss_msg.rate},
+  };
+
+  std::string json_str = json_msg.dump();
+
+  mrs_robot_diagnostics::SensorInfo sensor_info_msg;
+  sensor_info_msg.type         = mrs_robot_diagnostics::SensorStatus::TYPE_CAMERA; 
+  sensor_info_msg.details      = json_str;
+  ph_camera_details_.publish(sensor_info_msg);
+
 }
 
 
