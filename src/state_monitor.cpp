@@ -83,6 +83,7 @@ public:
 
   private:
     ros::NodeHandle nh_;
+    std::atomic<bool> is_initialized_ = false;
 
     std::mutex uav_state_mutex_;
     enum_helpers::enum_updater<uav_state_t> uav_state_ = {"UAV STATE", uav_state_t::UNKNOWN};
@@ -392,6 +393,7 @@ public:
 
     ROS_INFO("[StateMonitor]: initialized");
     ROS_INFO("[StateMonitor]: --------------------");
+    is_initialized_ = true;
   }
 
   //}
@@ -402,8 +404,11 @@ public:
 
   /* timerMain() //{ */
 
-  void StateMonitor::timerMain([[maybe_unused]] const ros::TimerEvent& event)
+  void StateMonitor::timerMain([[maybe_unused]] const ros::TimerEvent& event) 
   {
+    if (!is_initialized_) {
+      return;
+    }
     std::scoped_lock lck(uav_state_mutex_);
     const auto now = ros::Time::now();
     const auto uav_status = processIncomingMessage(sh_uav_status_);
@@ -466,6 +471,9 @@ public:
 
   void StateMonitor::timerUavState([[maybe_unused]] const ros::TimerEvent& event)
   {
+    if (!is_initialized_) {
+      return;
+    }
     std::scoped_lock lck(uav_state_mutex_);
     const auto now = ros::Time::now();
     const auto hw_api_status = processIncomingMessage(sh_hw_api_status_);
@@ -490,8 +498,12 @@ public:
   //}
 
   void StateMonitor::timerUpdateSensorStatus([[maybe_unused]] const ros::TimerEvent &event) {
-    // TODO mutex to protect
-    // std::scoped_lock lck(robot_handlers_.mtx);
+
+    if (!is_initialized_) {
+    return;
+    }
+
+    std::scoped_lock lck(mutex_sensor_handler_list_);
     available_sensors_.clear();
     for (auto &handler : sensor_handlers_) {
       mrs_robot_diagnostics::SensorStatus ss_msg;

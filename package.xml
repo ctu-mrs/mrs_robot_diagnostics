@@ -22,6 +22,7 @@
   <depend>mrs_lib</depend>
   <depend>mrs_errorgraph</depend>
   <depend>pluginlib</depend>
+  <depend>tf2_ros</depend>
 
   <export>
     <nodelet plugin="${prefix}/nodelets.xml" />

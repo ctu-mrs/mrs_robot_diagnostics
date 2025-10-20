@@ -13,6 +13,7 @@ set(CATKIN_DEPENDENCIES
   mrs_msgs
   mrs_lib
   mrs_errorgraph
+  tf2_ros
   )
 
 set(LIBRARIES
@@ -67,10 +68,6 @@ add_library(MRSRobotDiagnostics_StateMonitor
   src/state_monitor.cpp
   )
 
-add_library(MRSRobotDiagnostics_CameraHandler
-  src/sensor_handler_plugins/camera_handler.cpp
-  )
-
 add_dependencies(MRSRobotDiagnostics_StateMonitor
   ${${PROJECT_NAME}_EXPORTED_TARGETS}
   ${catkin_EXPORTED_TARGETS}
@@ -80,6 +77,19 @@ add_dependencies(MRSRobotDiagnostics_StateMonitor
 target_link_libraries(MRSRobotDiagnostics_StateMonitor
   ${catkin_LIBRARIES}
   )
+
+add_library(MRSRobotDiagnostics_CameraHandler
+  src/sensor_handler_plugins/camera_handler.cpp
+  )
+
+add_dependencies(MRSRobotDiagnostics_CameraHandler
+  ${${PROJECT_NAME}_EXPORTED_TARGETS}
+  ${catkin_EXPORTED_TARGETS}
+  )
+
+target_link_libraries(MRSRobotDiagnostics_CameraHandler
+  ${catkin_LIBRARIES}
+)
 
 ## --------------------------------------------------------------
 ## |                           Install                          |
