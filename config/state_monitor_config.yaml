@@ -1,4 +1,30 @@
-main_timer_rate: 1.0 # [Hz]
-uav_state_timer_rate: 100.0 # [Hz]
+robot_diagnostics:
+  main_timer_rate: 1.0 # [Hz]
+  uav_state_timer_rate: 100.0 # [Hz]
+  not_reporting_delay: 3.0 # [s]
 
-not_reporting_delay: 3.0 # [s]
+  sensor_handlers:
+    # the list of sensors to monitor
+    sensor_handler_names: [
+      # Example sensor handlers
+      "CameraHandler",
+      # "LidarHandler",
+      # "IMUHandler",
+      # "GPSHandler",
+      # "BatteryHandler",
+      # "BarometerHandler",
+      # "MagnetometerHandler",
+      # "RangeFinderHandler",
+    ]
+
+    # define "running" instances of plugins, there can be multiple instances of the same plugin
+    CameraHandler:
+      name: "Gazebo Camera"
+      type: "Camera"
+      address: "mrs_robot_diagnostics/CameraHandler"
+      topic: "/servo_camera/"
+
+    update_timer_rate: 1.0 # [Hz]
+
+
+

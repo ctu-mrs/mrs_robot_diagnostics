@@ -1,0 +1,6 @@
+<library path="lib/libMRSRobotDiagnostics_CameraHandler">
+  <class name="mrs_robot_diagnostics/CameraHandler" type="mrs_robot_diagnostics::sensor_handlers::camera_handler::CameraHandler" base_class_type="mrs_robot_diagnostics::sensor_handlers::SensorHandler">
+    <description>MRSRobotDiagnostics_CameraHandler</description>
+  </class>
+</library>
+

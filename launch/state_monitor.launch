@@ -30,6 +30,14 @@
       <param name="robot_type" value="$(arg ROBOT_TYPE)" />
       <param name="available_sensors" value="$(arg SENSORS)" />
 
+      <!-- For camera handler plugin --> 
+      <param name="camera_frame" value="$(arg UAV_NAME)/servo_camera/camera_frame" />
+      <param name="optical_frame" value="$(arg UAV_NAME)/servo_camera/camera_optical_frame" />
+      <param name="fcu_frame" value="$(arg UAV_NAME)/fcu" />
+      <param name="image_topic" value="/$(arg UAV_NAME)/servo_camera/image_raw" />
+      <param name="camera_info_topic" value="/$(arg UAV_NAME)/servo_camera/camera_info" />
+      <param name="camera_orientation_topic" value="/$(arg UAV_NAME)/servo_camera/orientation" />
+
       <param name="config" value="$(find mrs_robot_diagnostics)/config/state_monitor_config.yaml" />
 
       <param if="$(eval arg('custom_config') == '')" name="custom_config" value="" />
@@ -44,6 +52,7 @@
       <remap from="~out/uav_info" to="~/uav_info" />
       <remap from="~out/system_health_info" to="~/system_health_info" />
       <remap from="~out/uav_state" to="~/uav_state" />
+      <remap from="~out/sensor_info" to="~/sensor_info" />
 
       <!-- Subscribers -->
       <remap from="~in/automatic_start_can_takeoff" to="automatic_start/can_takeoff" />
@@ -61,6 +70,7 @@
       <remap from="~in/mass_estimate" to="control_manager/mass_estimate" />
       <remap from="~in/hw_api_magnetic_field" to="hw_api/magnetic_field" />
 
+      
       <remap from="~in/errors" to="errors" />
 
     </node>
