@@ -23,7 +23,7 @@ public:
   CameraHandler() : tf_listener_(tf_buffer_) {
   }
   bool initialize(ros::NodeHandle &nh, const std::string &name, const std::string &name_space, const std::string &topic) override;
-  void updateStatus(mrs_robot_diagnostics::SensorStatus &ss_msg) override;
+  mrs_robot_diagnostics::SensorStatus updateStatus() override;
 
 
 private:

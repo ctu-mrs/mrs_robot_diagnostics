@@ -506,9 +506,8 @@ public:
     std::scoped_lock lck(mutex_sensor_handler_list_);
     available_sensors_.clear();
     for (auto &handler : sensor_handlers_) {
-      mrs_robot_diagnostics::SensorStatus ss_msg;
-      handler->updateStatus(ss_msg);
-      available_sensors_.push_back(ss_msg);
+      auto sensor_status_msg = handler->updateStatus();
+      available_sensors_.push_back(sensor_status_msg);
     }
   }
 

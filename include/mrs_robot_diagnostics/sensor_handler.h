@@ -18,7 +18,7 @@ class SensorHandler {
 public:
   virtual bool initialize(ros::NodeHandle &nh, const std::string &name, const std::string &name_space, const std::string &topic) = 0;
 
-  virtual void updateStatus(mrs_robot_diagnostics::SensorStatus &ss_msg) = 0;
+  virtual mrs_robot_diagnostics::SensorStatus updateStatus() = 0;
 
   virtual ~SensorHandler() = default;
 

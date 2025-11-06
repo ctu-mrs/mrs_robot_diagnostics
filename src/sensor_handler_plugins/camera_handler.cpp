@@ -66,7 +66,8 @@ bool CameraHandler::initialize(ros::NodeHandle &nh, const std::string &name, con
   return true;
 }
 
-void CameraHandler::updateStatus(mrs_robot_diagnostics::SensorStatus &ss_msg) {
+mrs_robot_diagnostics::SensorStatus CameraHandler::updateStatus() {
+  mrs_robot_diagnostics::SensorStatus ss_msg;
   ss_msg.name = _name_;
   ss_msg.type = mrs_robot_diagnostics::SensorStatus::TYPE_CAMERA;
 
@@ -74,7 +75,7 @@ void CameraHandler::updateStatus(mrs_robot_diagnostics::SensorStatus &ss_msg) {
     ss_msg.ready  = false;
     ss_msg.rate   = -1;
     ss_msg.status = "NOT_INITIALIZED";
-    return;
+    return ss_msg;
   }
 
   json camera_info_json;
@@ -191,6 +192,8 @@ void CameraHandler::updateStatus(mrs_robot_diagnostics::SensorStatus &ss_msg) {
   sensor_info_msg.type    = mrs_robot_diagnostics::SensorStatus::TYPE_CAMERA;
   sensor_info_msg.details = json_str;
   ph_camera_details_.publish(sensor_info_msg);
+  // Return the camera status
+  return ss_msg;
 }
 
 
