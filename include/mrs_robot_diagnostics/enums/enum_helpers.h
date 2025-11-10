@@ -19,7 +19,7 @@ namespace enum_helpers
         if (m_enum == new_value)
           return;
 
-        ROS_INFO_STREAM("Changing " << m_name << ": \"" << to_string(m_enum) << "\" => \"" << to_string(new_value) << "\"");
+        // ROS_INFO_STREAM("Changing " << m_name << ": \"" << to_string(m_enum) << "\" => \"" << to_string(new_value) << "\"");
         m_enum = new_value;
       }
 

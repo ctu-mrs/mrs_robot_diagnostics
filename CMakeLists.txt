@@ -1,114 +1,120 @@
-cmake_minimum_required(VERSION 3.15.0)
+cmake_minimum_required(VERSION 3.5)
 project(mrs_robot_diagnostics)
 
-set(CMAKE_CXX_STANDARD 17)
+# set the correct standards
+set(CMAKE_C_STANDARD 99)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-add_definitions(-save-temps)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-set(CATKIN_DEPENDENCIES
-  cmake_modules
-  roscpp
-  message_generation
-  nodelet
+# 1 == use rclcpp::Timer implementation
+# 0 == use MRS's thread timer implementation
+set(USE_ROS_TIMER 0)
+
+if(${USE_ROS_TIMER})
+  MESSAGE(WARNING "[mrs_robot_diagnostics]: Compiling with ROS Timers. This can cause high CPU load in runtime.")
+endif()
+
+# set the compile options to show code warnings
+if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+  add_compile_options(-Wall -Wextra)
+endif()
+
+if(ENABLE_COVERAGE)
+  message(WARNING "building for coverage, the performance might be limited")
+
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} --coverage -fprofile-arcs")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} --coverage -fprofile-arcs")
+
+  add_definitions("-O1")
+  add_definitions("-g")
+endif()
+
+set(DEPENDENCIES
+  rclcpp
+  rclcpp_components
   mrs_msgs
   mrs_lib
-  mrs_errorgraph
-  tf2_ros
+  pluginlib
   )
 
 set(LIBRARIES
-  MRSRobotDiagnostics_StateMonitor
-  MRSRobotDiagnostics_CameraHandler
+  MrsRobotDiagnostics_StateMonitor
   )
 
-find_package(catkin REQUIRED COMPONENTS
-  ${CATKIN_DEPENDENCIES}
-  )
-
-# messages
-add_message_files(DIRECTORY msg FILES
-  BatteryState.msg
-  SensorStatus.msg
-  SensorInfo.msg
-  NodeCpuLoad.msg
-
-  GeneralRobotInfo.msg
-  StateEstimationInfo.msg
-  ControlInfo.msg
-  CollisionAvoidanceInfo.msg
-  UavInfo.msg
-  SystemHealthInfo.msg
-
-  UavState.msg
-  )
-
-## Generate added messages and services with any dependencies listed here
-generate_messages(DEPENDENCIES
-  std_msgs
-  geometry_msgs
-  sensor_msgs
-  mrs_msgs
-  )
-
-catkin_package(
-  INCLUDE_DIRS include
-  LIBRARIES ${LIBRARIES}
-  CATKIN_DEPENDS ${CATKIN_DEPENDENCIES}
-  )
+foreach(DEP IN LISTS DEPENDENCIES)
+  find_package(${DEP} REQUIRED)
+endforeach()
 
 include_directories(
-  ${catkin_INCLUDE_DIRS}
   include
+  ${rclcpp_INCLUDE_DIRS}
+  ${mrs_lib_INCLUDE_DIRS}
   )
+
+
+## --------------------------------------------------------------
+## |                           Compile                          |
+## --------------------------------------------------------------
+
 
 ## | ------------ MRSRobotDiagnostics_StateMonitor ------------ |
 
 ## Declare a C++ library
-add_library(MRSRobotDiagnostics_StateMonitor
+add_library(MrsRobotDiagnostics_StateMonitor SHARED
   src/state_monitor.cpp
   )
 
-add_dependencies(MRSRobotDiagnostics_StateMonitor
-  ${${PROJECT_NAME}_EXPORTED_TARGETS}
-  ${catkin_EXPORTED_TARGETS}
+ament_target_dependencies(MrsRobotDiagnostics_StateMonitor
+  ${DEPENDENCIES}
   )
 
-## Specify libraries to link a library or executable target against
-target_link_libraries(MRSRobotDiagnostics_StateMonitor
-  ${catkin_LIBRARIES}
-  )
+rclcpp_components_register_nodes(MrsRobotDiagnostics_StateMonitor PLUGIN "mrs_robot_diagnostics::state_monitor::StateMonitor" EXECUTABLE MrsRobotDiagnostics_StateMonitor)
 
-add_library(MRSRobotDiagnostics_CameraHandler
-  src/sensor_handler_plugins/camera_handler.cpp
-  )
-
-add_dependencies(MRSRobotDiagnostics_CameraHandler
-  ${${PROJECT_NAME}_EXPORTED_TARGETS}
-  ${catkin_EXPORTED_TARGETS}
-  )
-
-target_link_libraries(MRSRobotDiagnostics_CameraHandler
-  ${catkin_LIBRARIES}
-)
+target_compile_definitions(MrsRobotDiagnostics_StateMonitor PRIVATE USE_ROS_TIMER=${USE_ROS_TIMER})
 
 ## --------------------------------------------------------------
 ## |                           Install                          |
 ## --------------------------------------------------------------
 
-install(TARGETS ${LIBRARIES}
-  ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-  LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-  RUNTIME DESTINATION ${CATKIN_GLOBAL_BIN_DESTINATION}
+ament_export_libraries(
+
+  ${LIBRARIES}
   )
 
-install(DIRECTORY launch config
-  DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
+install(
+  TARGETS ${LIBRARIES}
+  EXPORT export_${PROJECT_NAME}
+  ARCHIVE DESTINATION lib
+  LIBRARY DESTINATION lib
+  RUNTIME DESTINATION bin
   )
 
-install(DIRECTORY include/mrs_robot_diagnostics/
-  DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION}
+install(
+  DIRECTORY include
+  DESTINATION .
   )
 
-install(FILES nodelets.xml
-  DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
+install(
+  DIRECTORY launch
+  DESTINATION share/${PROJECT_NAME}
   )
+
+install(
+  DIRECTORY config
+  DESTINATION share/${PROJECT_NAME}
+  )
+
+ament_export_include_directories(
+  include
+  )
+
+ament_export_targets(
+  export_${PROJECT_NAME} HAS_LIBRARY_TARGET
+  )
+
+ament_export_dependencies(
+  ${DEPENDENCIES}
+  )
+
+ament_package()

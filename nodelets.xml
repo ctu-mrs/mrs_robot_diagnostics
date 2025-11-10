@@ -1,5 +1,0 @@
-<library path="lib/libMRSRobotDiagnostics_StateMonitor">
-  <class name="mrs_robot_diagnostics/StateMonitor" type="mrs_robot_diagnostics::StateMonitor" base_class_type="nodelet::Nodelet">
-    <description>StateMonitor nodelet</description>
-  </class>
-</library>
