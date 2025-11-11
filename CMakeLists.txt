@@ -35,11 +35,13 @@ set(DEPENDENCIES
   rclcpp_components
   mrs_msgs
   mrs_lib
+  tf2_ros
   pluginlib
   )
 
 set(LIBRARIES
   MrsRobotDiagnostics_StateMonitor
+  MrsRobotDiagnostics_CameraHandler
   )
 
 foreach(DEP IN LISTS DEPENDENCIES)
@@ -72,6 +74,25 @@ ament_target_dependencies(MrsRobotDiagnostics_StateMonitor
 rclcpp_components_register_nodes(MrsRobotDiagnostics_StateMonitor PLUGIN "mrs_robot_diagnostics::state_monitor::StateMonitor" EXECUTABLE MrsRobotDiagnostics_StateMonitor)
 
 target_compile_definitions(MrsRobotDiagnostics_StateMonitor PRIVATE USE_ROS_TIMER=${USE_ROS_TIMER})
+
+## | ----------- MRSRobotDiagnostics_CameraHandler ------------ |
+## Declare a C++ add_library
+add_library(MrsRobotDiagnostics_CameraHandler SHARED
+  src/sensor_handler_plugins/camera_handler.cpp
+  )
+
+ament_target_dependencies(MrsRobotDiagnostics_CameraHandler
+  ${DEPENDENCIES}
+)
+
+target_compile_definitions(MrsRobotDiagnostics_CameraHandler PRIVATE USE_ROS_TIMER=${USE_ROS_TIMER})
+
+## --------------------------------------------------------------
+## |                       export plugins                       |
+## --------------------------------------------------------------
+
+# <package of the base class>, <relative path to the xml>
+pluginlib_export_plugin_description_file(mrs_robot_diagnostics plugins.xml)
 
 ## --------------------------------------------------------------
 ## |                           Install                          |

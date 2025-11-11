@@ -282,7 +282,7 @@ void StateMonitor::initialize() {
   param_loader.loadParam("sensor_handler_names", _sensor_handler_names_);
 
   sensor_handler_loader_ =
-      std::make_unique<pluginlib::ClassLoader<mrs_robot_diagnostics::SensorHandler>>("mrs_robot_diagnostics", "mrs_msgs::msg::sensor_handlers::SensorHandler");
+      std::make_unique<pluginlib::ClassLoader<mrs_robot_diagnostics::SensorHandler>>("mrs_robot_diagnostics", "mrs_robot_diagnostics::SensorHandler");
 
   // for each plugin in the list
   for (int i = 0; i < int(_sensor_handler_names_.size()); i++) {
@@ -327,7 +327,7 @@ void StateMonitor::initialize() {
         it = sensor_handlers_params_.find(_sensor_handler_names_[i]);
 
         RCLCPP_INFO(node_->get_logger(), "initializing the sensor handler'%s'", it->second.address.c_str());
-        sensor_handlers_[i]->initialize(node_, it->second.sensor_name, it->second.name_space, it->second.topic);
+        sensor_handlers_[i]->initialize(node_, it->second.sensor_name, it->second.name_space, it->second.topic, cbkgrp_subs_);
       }
       catch (std::runtime_error &ex) {
         RCLCPP_ERROR(node_->get_logger(), "exception caught during sensor handler initialization '%s'", ex.what());
@@ -367,48 +367,48 @@ void StateMonitor::initialize() {
   shopts.autostart                           = true;
   shopts.subscription_options.callback_group = cbkgrp_subs_;
 
-  sh_errorgraph_error_msg_ = mrs_lib::SubscriberHandler<mrs_msgs::msg::ErrorgraphElement>(shopts, "in/errors", &StateMonitor::cbk_errorgraph_element, this);
+  sh_errorgraph_error_msg_ = mrs_lib::SubscriberHandler<mrs_msgs::msg::ErrorgraphElement>(shopts, "~/errors_in", &StateMonitor::cbk_errorgraph_element, this);
 
   // | -------------------- GeneralRobotInfo -------------------- |
-  ph_general_robot_info_          = mrs_lib::PublisherHandler<mrs_msgs::msg::GeneralRobotInfo>(node_, "out/general_robot_info");
+  ph_general_robot_info_          = mrs_lib::PublisherHandler<mrs_msgs::msg::GeneralRobotInfo>(node_, "~/general_robot_info_out");
   last_general_robot_info_        = init_general_robot_info();
-  sh_battery_state_               = mrs_lib::SubscriberHandler<sensor_msgs::msg::BatteryState>(shopts, "in/battery_state");
-  sh_automatic_start_can_takeoff_ = mrs_lib::SubscriberHandler<std_msgs::msg::Bool>(shopts, "in/automatic_start_can_takeoff", mrs_lib::no_timeout);
+  sh_battery_state_               = mrs_lib::SubscriberHandler<sensor_msgs::msg::BatteryState>(shopts, "~/battery_state_in");
+  sh_automatic_start_can_takeoff_ = mrs_lib::SubscriberHandler<std_msgs::msg::Bool>(shopts, "~/automatic_start_can_takeoff_in", mrs_lib::no_timeout);
 
   // | ------------------- StateEstimationInfo ------------------ |
-  ph_state_estimation_info_   = mrs_lib::PublisherHandler<mrs_msgs::msg::StateEstimationInfo>(node_, "out/state_estimation_info");
+  ph_state_estimation_info_   = mrs_lib::PublisherHandler<mrs_msgs::msg::StateEstimationInfo>(node_, "~/state_estimation_info_out");
   last_state_estimation_info_ = init_state_estimation_info();
-  sh_estimation_diagnostics_  = mrs_lib::SubscriberHandler<mrs_msgs::msg::EstimationDiagnostics>(shopts, "in/estimation_diagnostics");
-  sh_hw_api_gnss_             = mrs_lib::SubscriberHandler<sensor_msgs::msg::NavSatFix>(shopts, "in/hw_api_gnss");
-  sh_control_manager_heading_ = mrs_lib::SubscriberHandler<mrs_msgs::msg::Float64Stamped>(shopts, "in/control_manager_heading");
-  sh_hw_api_mag_heading_      = mrs_lib::SubscriberHandler<mrs_msgs::msg::Float64Stamped>(shopts, "in/hw_api_mag_heading");
+  sh_estimation_diagnostics_  = mrs_lib::SubscriberHandler<mrs_msgs::msg::EstimationDiagnostics>(shopts, "~/estimation_diagnostics_in");
+  sh_hw_api_gnss_             = mrs_lib::SubscriberHandler<sensor_msgs::msg::NavSatFix>(shopts, "~/hw_api_gnss_in");
+  sh_control_manager_heading_ = mrs_lib::SubscriberHandler<mrs_msgs::msg::Float64Stamped>(shopts, "~/control_manager_heading_in");
+  sh_hw_api_mag_heading_      = mrs_lib::SubscriberHandler<mrs_msgs::msg::Float64Stamped>(shopts, "~/hw_api_mag_heading_in");
 
   // | ----------------------- ControlInfo ---------------------- |
-  ph_control_info_                = mrs_lib::PublisherHandler<mrs_msgs::msg::ControlInfo>(node_, "out/control_info");
+  ph_control_info_                = mrs_lib::PublisherHandler<mrs_msgs::msg::ControlInfo>(node_, "~/control_info_out");
   last_control_info_              = init_control_info();
-  sh_control_manager_diagnostics_ = mrs_lib::SubscriberHandler<mrs_msgs::msg::ControlManagerDiagnostics>(shopts, "in/control_manager_diagnostics");
-  sh_control_manager_thrust_      = mrs_lib::SubscriberHandler<std_msgs::msg::Float64>(shopts, "in/control_manager_thrust");
+  sh_control_manager_diagnostics_ = mrs_lib::SubscriberHandler<mrs_msgs::msg::ControlManagerDiagnostics>(shopts, "~/control_manager_diagnostics_in");
+  sh_control_manager_thrust_      = mrs_lib::SubscriberHandler<std_msgs::msg::Float64>(shopts, "~/control_manager_thrust_in");
 
   // | ----------------- CollisionAvoidanceInfo ----------------- |
-  ph_collision_avoidance_info_   = mrs_lib::PublisherHandler<mrs_msgs::msg::CollisionAvoidanceInfo>(node_, "out/collision_avoidance_info");
+  ph_collision_avoidance_info_   = mrs_lib::PublisherHandler<mrs_msgs::msg::CollisionAvoidanceInfo>(node_, "~/collision_avoidance_info_out");
   last_collision_avoidance_info_ = init_collision_avoidance_info();
-  sh_mpc_tracker_diagnostics_    = mrs_lib::SubscriberHandler<mrs_msgs::msg::MpcTrackerDiagnostics>(shopts, "in/mpc_tracker_diagnostics");
+  sh_mpc_tracker_diagnostics_    = mrs_lib::SubscriberHandler<mrs_msgs::msg::MpcTrackerDiagnostics>(shopts, "~/mpc_tracker_diagnostics_in");
 
   // | ------------------------- UavInfo ------------------------ |
-  ph_uav_info_      = mrs_lib::PublisherHandler<mrs_msgs::msg::UavInfo>(node_, "out/uav_info");
+  ph_uav_info_      = mrs_lib::PublisherHandler<mrs_msgs::msg::UavInfo>(node_, "~/uav_info_out");
   last_uav_info_    = init_uav_info();
-  sh_hw_api_status_ = mrs_lib::SubscriberHandler<mrs_msgs::msg::HwApiStatus>(shopts, "in/hw_api_status");
-  sh_uav_status_    = mrs_lib::SubscriberHandler<mrs_msgs::msg::UavStatus>(shopts, "in/uav_status");
-  sh_mass_nominal_  = mrs_lib::SubscriberHandler<std_msgs::msg::Float64>(shopts, "in/mass_nominal");
-  sh_mass_estimate_ = mrs_lib::SubscriberHandler<std_msgs::msg::Float64>(shopts, "in/mass_estimate");
+  sh_hw_api_status_ = mrs_lib::SubscriberHandler<mrs_msgs::msg::HwApiStatus>(shopts, "~/hw_api_status_in");
+  sh_uav_status_    = mrs_lib::SubscriberHandler<mrs_msgs::msg::UavStatus>(shopts, "~/uav_status_in");
+  sh_mass_nominal_  = mrs_lib::SubscriberHandler<std_msgs::msg::Float64>(shopts, "~/mass_nominal_in");
+  sh_mass_estimate_ = mrs_lib::SubscriberHandler<std_msgs::msg::Float64>(shopts, "~/mass_estimate_in");
 
   // | -------------------- SystemHealthInfo -------------------- |
-  ph_system_health_info_    = mrs_lib::PublisherHandler<mrs_msgs::msg::SystemHealthInfo>(node_, "out/system_health_info");
+  ph_system_health_info_    = mrs_lib::PublisherHandler<mrs_msgs::msg::SystemHealthInfo>(node_, "~/system_health_info_out");
   last_system_health_info_  = init_system_health_info();
-  sh_hw_api_magnetic_field_ = mrs_lib::SubscriberHandler<sensor_msgs::msg::MagneticField>(shopts, "in/hw_api_magnetic_field", mrs_lib::no_timeout);
+  sh_hw_api_magnetic_field_ = mrs_lib::SubscriberHandler<sensor_msgs::msg::MagneticField>(shopts, "~/hw_api_magnetic_field_in", mrs_lib::no_timeout);
 
   // | ------------------------ UAV state ----------------------- |
-  ph_uav_state_ = mrs_lib::PublisherHandler<mrs_msgs::msg::State>(node_, "out/uav_state");
+  ph_uav_state_ = mrs_lib::PublisherHandler<mrs_msgs::msg::State>(node_, "~/uav_state_out");
 
   // | ------------------------- timers ------------------------- |
 

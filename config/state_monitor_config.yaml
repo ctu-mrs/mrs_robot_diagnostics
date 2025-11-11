@@ -7,7 +7,7 @@ robot_diagnostics:
     # the list of sensors to monitor
     sensor_handler_names: [
       # Example sensor handlers
-      # "CameraHandler",
+      "CameraHandler",
       # "LidarHandler",
       # "IMUHandler",
       # "GPSHandler",

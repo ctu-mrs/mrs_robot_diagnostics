@@ -13,7 +13,7 @@ using json = nlohmann::json;
 
 class SensorHandler {
 public:
-  virtual bool initialize(rclcpp::Node::SharedPtr &node, const std::string &name, const std::string &name_space, const std::string &topic) = 0;
+  virtual bool initialize(rclcpp::Node::SharedPtr &node, const std::string &name, const std::string &name_space, const std::string &topic, rclcpp::CallbackGroup::SharedPtr cbkgrp_subs = nullptr) = 0;
 
   virtual mrs_msgs::msg::SensorStatus updateStatus() = 0;
 
@@ -44,7 +44,7 @@ protected:
     mrs_lib::SubscriberHandlerOptions shopts;
     shopts.node                                = node;
     shopts.node_name                           = "StateMonitor";
-    shopts.no_message_timeout                  = mrs_lib::no_timeout;
+    shopts.no_message_timeout                  = timeout; 
     shopts.threadsafe                          = true;
     shopts.autostart                           = true;
     shopts.subscription_options.callback_group = cbkgrp_subs;

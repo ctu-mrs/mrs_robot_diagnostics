@@ -3,73 +3,91 @@
 namespace mrs_robot_diagnostics
 {
 
-namespace sensor_handlers
-{
-
 namespace camera_handler
 {
-
-bool CameraHandler::initialize(ros::NodeHandle &nh, const std::string &name, const std::string &name_space, const std::string &topic) {
-  ros::NodeHandle nh_(nh, name_space);
+bool CameraHandler::initialize(rclcpp::Node::SharedPtr &node, const std::string &name, const std::string &name_space, const std::string &topic, rclcpp::CallbackGroup::SharedPtr cbkgrp_subs) {
   _name_  = name;
   _topic_ = topic;
-  ros::Time::waitForValid();
 
 
-  mrs_lib::SubscribeHandlerOptions shopts;
-  shopts.nh                 = nh_;
+  // Initialize tf2 components
+  tf_buffer_ = std::make_unique<tf2_ros::Buffer>(node->get_clock());
+  tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_, node);
+
+ // Declare parameters before accessing them
+  if (!node->has_parameter("image_topic")) {
+    node->declare_parameter("image_topic", "");
+  }
+  if (!node->has_parameter("camera_info_topic")) {
+    node->declare_parameter("camera_info_topic", "");
+  }
+  if (!node->has_parameter("camera_orientation_topic")) {
+    node->declare_parameter("camera_orientation_topic", "");
+  }
+  if (!node->has_parameter("camera_frame")) {
+    node->declare_parameter("camera_frame", "");
+  }
+  if (!node->has_parameter("optical_frame")) {
+    node->declare_parameter("optical_frame", "");
+  }
+  if (!node->has_parameter("fcu_frame")) {
+    node->declare_parameter("fcu_frame", "");
+  }
+
+  mrs_lib::SubscriberHandlerOptions shopts;
+  shopts.node                 = node;
   shopts.node_name          = "StateMonitor";
   shopts.no_message_timeout = mrs_lib::no_timeout;
   shopts.threadsafe         = true;
   shopts.autostart          = true;
-  shopts.queue_size         = 10;
-  shopts.transport_hints    = ros::TransportHints().tcpNoDelay();
+  shopts.subscription_options.callback_group = cbkgrp_subs;
+
 
   std::string image_topic_name;
-  nh.getParam("image_topic", image_topic_name);
-  ROS_INFO(" [CameraHandler] Subscribing to image topic: %s", image_topic_name.c_str());
+  node->get_parameter("image_topic", image_topic_name);
+  RCLCPP_INFO(node->get_logger(), " Subscribing to image topic: %s", image_topic_name.c_str());
 
   std::string camera_info_topic_name;
-  nh.getParam("camera_info_topic", camera_info_topic_name);
-  ROS_INFO(" [CameraHandler] Subscribing to camera info topic: %s", camera_info_topic_name.c_str());
+  node->get_parameter("camera_info_topic", camera_info_topic_name);
+  RCLCPP_INFO(node->get_logger(), " Subscribing to camera info topic: %s", camera_info_topic_name.c_str());
 
   std::string camera_orientation_topic_name;
-  nh.getParam("camera_orientation_topic", camera_orientation_topic_name);
-  ROS_INFO("[CameraHandler] Subscribing to camera orientation topic: %s", camera_orientation_topic_name.c_str());
+  node->get_parameter("camera_orientation_topic", camera_orientation_topic_name);
+  RCLCPP_INFO(node->get_logger(), " Subscribing to camera orientation topic: %s", camera_orientation_topic_name.c_str());
 
-  if (!nh.getParam("camera_frame", _camera_frame_)) {
-    ROS_WARN("Parameter 'camera_frame' not found, using default");
+  if (!node->get_parameter("camera_frame", _camera_frame_)) {
+    RCLCPP_WARN(node->get_logger(), "Parameter 'camera_frame' not found, failed initialization");
     return false;
   }
 
-  if (!nh.getParam("optical_frame", _optical_frame_)) {
-    ROS_WARN("Parameter 'optical_frame' not found, using default");
+  if (!node->get_parameter("optical_frame", _optical_frame_)) {
+    RCLCPP_WARN(node->get_logger(), "Parameter 'optical_frame' not found, failed initialization"); 
     return false;
   }
 
-  if (!nh.getParam("fcu_frame", _fcu_frame_)) {
-    ROS_WARN("Parameter 'fcu_frame' not found, using default");
+  if (!node->get_parameter("fcu_frame", _fcu_frame_)) {
+    RCLCPP_WARN(node->get_logger(), "Parameter 'fcu_frame' not found, failed initialization"); 
     return false;
   }
 
   // Subscribers
-  ROS_INFO(" [CameraHandler] Subscribing to image topic: %s", image_topic_name.c_str());
-  sh_image_              = createSubscriber<sensor_msgs::Image>(nh_, image_topic_name);
-  sh_camera_info_        = mrs_lib::SubscribeHandler<sensor_msgs::CameraInfo>(shopts, camera_info_topic_name);
-  sh_camera_orientation_ = mrs_lib::SubscribeHandler<std_msgs::Float32MultiArray>(shopts, camera_orientation_topic_name);
+  RCLCPP_INFO(node->get_logger(), "Subscribing to camera info topic: %s", camera_info_topic_name.c_str());
+  sh_image_              = createSubscriber<sensor_msgs::msg::Image>(node, image_topic_name);
+  sh_camera_info_        = mrs_lib::SubscriberHandler<sensor_msgs::msg::CameraInfo>(shopts, camera_info_topic_name);
+  sh_camera_orientation_ = mrs_lib::SubscriberHandler<std_msgs::msg::Float32MultiArray>(shopts, camera_orientation_topic_name);
 
   // Publisher
-  ph_camera_details_ = mrs_lib::PublisherHandler<mrs_robot_diagnostics::SensorInfo>(nh, "out/sensor_info", 1, true);
+  ph_camera_details_ = mrs_lib::PublisherHandler<mrs_msgs::msg::SensorInfo>(node, "out/sensor_info");
 
-  ROS_INFO("Camera handler '%s' initialized in namespace '%s'", name.c_str(), name_space.c_str());
+  RCLCPP_INFO(node->get_logger(), "Camera handler '%s' initialized in namespace '%s'", name.c_str(), name_space.c_str());
   is_initialized_ = true;
   return true;
 }
 
-mrs_robot_diagnostics::SensorStatus CameraHandler::updateStatus() {
-  mrs_robot_diagnostics::SensorStatus ss_msg;
+mrs_msgs::msg::SensorStatus CameraHandler::updateStatus() {
+  mrs_msgs::msg::SensorStatus ss_msg;
   ss_msg.name = _name_;
-  ss_msg.type = mrs_robot_diagnostics::SensorStatus::TYPE_CAMERA;
+  ss_msg.type = mrs_msgs::msg::SensorStatus::TYPE_CAMERA;
 
   if (!is_initialized_) {
     ss_msg.ready  = false;
@@ -94,8 +112,8 @@ mrs_robot_diagnostics::SensorStatus CameraHandler::updateStatus() {
     auto msg            = sh_camera_info_.getMsg();
     const double height = msg->height;
     const double width  = msg->width;
-    const double fx     = msg->K[0];
-    const double fy     = msg->K[4];
+    const double fx     = msg->k[0];
+    const double fy     = msg->k[4];
 
     const double fov_x = 2 * atan(width / (2 * fx));
     const double fov_y = 2 * atan(height / (2 * fy));
@@ -113,10 +131,10 @@ mrs_robot_diagnostics::SensorStatus CameraHandler::updateStatus() {
     ss_msg.status = "NO_CAMERA_INFO";
   }
 
-  geometry_msgs::TransformStamped transform;
+  geometry_msgs::msg::TransformStamped transform;
   json camera_tf_json;
   try {
-    transform = tf_buffer_.lookupTransform(_fcu_frame_, _camera_frame_, ros::Time(0));
+    transform = tf_buffer_->lookupTransform(_fcu_frame_, _camera_frame_, tf2::TimePointZero); 
     double x  = transform.transform.translation.x;
     double y  = transform.transform.translation.y;
     double z  = transform.transform.translation.z;
@@ -136,13 +154,13 @@ mrs_robot_diagnostics::SensorStatus CameraHandler::updateStatus() {
     };
   }
   catch (tf2::TransformException &ex) {
-    ROS_WARN("%s", ex.what());
+    RCLCPP_WARN(rclcpp::get_logger("CameraHandler"), "%s", ex.what());
   }
 
 
   json optical_tf_json;
   try {
-    transform = tf_buffer_.lookupTransform(_fcu_frame_, _optical_frame_, ros::Time(0));
+    transform = tf_buffer_->lookupTransform(_fcu_frame_, _optical_frame_, tf2::TimePointZero);
     double x  = transform.transform.translation.x;
     double y  = transform.transform.translation.y;
     double z  = transform.transform.translation.z;
@@ -162,7 +180,7 @@ mrs_robot_diagnostics::SensorStatus CameraHandler::updateStatus() {
     };
   }
   catch (tf2::TransformException &ex) {
-    ROS_WARN("%s", ex.what());
+    RCLCPP_WARN(rclcpp::get_logger("CameraHandler"), "%s", ex.what());
   }
 
 
@@ -188,17 +206,16 @@ mrs_robot_diagnostics::SensorStatus CameraHandler::updateStatus() {
 
   std::string json_str = json_msg.dump();
 
-  mrs_robot_diagnostics::SensorInfo sensor_info_msg;
-  sensor_info_msg.type    = mrs_robot_diagnostics::SensorStatus::TYPE_CAMERA;
+  mrs_msgs::msg::SensorInfo sensor_info_msg;
+  sensor_info_msg.type    = mrs_msgs::msg::SensorStatus::TYPE_CAMERA;
   sensor_info_msg.details = json_str;
   ph_camera_details_.publish(sensor_info_msg);
   // Return the camera status
   return ss_msg;
 }
 
-
 } // namespace camera_handler
-} // namespace sensor_handlers
 } // namespace mrs_robot_diagnostics
-#include <pluginlib/class_list_macros.h>
-PLUGINLIB_EXPORT_CLASS(mrs_robot_diagnostics::sensor_handlers::camera_handler::CameraHandler, mrs_robot_diagnostics::sensor_handlers::SensorHandler)
+
+#include <pluginlib/class_list_macros.hpp>
+PLUGINLIB_EXPORT_CLASS(mrs_robot_diagnostics::camera_handler::CameraHandler, mrs_robot_diagnostics::SensorHandler)
