@@ -4,6 +4,8 @@
 #include <pluginlib/class_loader.hpp>
 
 #include <mrs_msgs/msg/estimation_diagnostics.hpp>
+#include <mrs_msgs/msg/errorgraph_element.hpp>
+#include <mrs_msgs/msg/errorgraph_element_array.hpp>
 #include <mrs_msgs/msg/control_manager_diagnostics.hpp>
 #include <mrs_msgs/msg/gain_manager_diagnostics.hpp>
 #include <mrs_msgs/msg/uav_diagnostics.hpp>
@@ -134,9 +136,6 @@ private:
   // | ---------------------- ROS subscribers --------------------- |
   std::shared_ptr<mrs_lib::TimeoutManager> tim_mgr_;
 
-  // TODO to test
-  mrs_lib::SubscriberHandler<mrs_msgs::msg::ErrorgraphElement> sh_errorgraph_error_msg_;
-
   // | -------------------- GeneralRobotInfo -------------------- |
   mrs_lib::PublisherHandler<mrs_msgs::msg::GeneralRobotInfo> ph_general_robot_info_;
   mrs_msgs::msg::GeneralRobotInfo last_general_robot_info_;
@@ -178,6 +177,12 @@ private:
   // | ------------------------ UAV state ----------------------- |
   mrs_lib::PublisherHandler<mrs_msgs::msg::State> ph_uav_state_;
 
+  // |
+
+  // | ----------------------- Root errors ----------------------- |
+  mrs_lib::PublisherHandler<mrs_msgs::msg::ErrorgraphElementArray> ph_root_errors_;
+  mrs_lib::SubscriberHandler<mrs_msgs::msg::ErrorgraphElement> sh_errorgraph_error_msg_;
+
   std::unique_ptr<pluginlib::ClassLoader<mrs_robot_diagnostics::SensorHandler>>
       sensor_handler_loader_;                                                          // pluginlib loader of dynamically loaded sensor handlers
   std::vector<std::string> _sensor_handler_names_;                                     // list of sensor handlers names
@@ -190,6 +195,10 @@ private:
   // timer for main loop
   std::shared_ptr<TimerType> timer_main_;
   void timerMain();
+
+  // timer error publishing
+  std::shared_ptr<TimerType> timer_error_publishing_;
+  void timerErrorPublishing();
 
   // timer for uav state publishing
   std::shared_ptr<TimerType> timer_uav_state_;
@@ -271,6 +280,7 @@ void StateMonitor::initialize() {
   param_loader.loadParam("robot_type", robot_type);
 
   auto main_timer_rate        = param_loader.loadParam2<double>("robot_diagnostics/main_timer_rate");
+  auto error_publisher_rate   = param_loader.loadParam2<double>("robot_diagnostics/error_publisher_rate");
   const auto state_timer_rate = param_loader.loadParam2<double>("robot_diagnostics/state_timer_rate");
   not_reporting_delay_        = param_loader.loadParam2<rclcpp::Duration>("robot_diagnostics/not_reporting_delay");
 
@@ -367,6 +377,7 @@ void StateMonitor::initialize() {
   shopts.autostart                           = true;
   shopts.subscription_options.callback_group = cbkgrp_subs_;
 
+  ph_root_errors_          = mrs_lib::PublisherHandler<mrs_msgs::msg::ErrorgraphElementArray>(node_, "~/root_errors_out");
   sh_errorgraph_error_msg_ = mrs_lib::SubscriberHandler<mrs_msgs::msg::ErrorgraphElement>(shopts, "~/errors_in", &StateMonitor::cbk_errorgraph_element, this);
 
   // | -------------------- GeneralRobotInfo -------------------- |
@@ -422,6 +433,12 @@ void StateMonitor::initialize() {
     std::function<void()> callback_fcn = std::bind(&StateMonitor::timerMain, this);
 
     timer_main_ = std::make_shared<TimerType>(timer_opts_start, rclcpp::Rate(main_timer_rate, clock_), callback_fcn);
+  }
+
+  {
+    std::function<void()> callback_fcn = std::bind(&StateMonitor::timerErrorPublishing, this);
+
+    timer_error_publishing_ = std::make_shared<TimerType>(timer_opts_start, rclcpp::Rate(error_publisher_rate, clock_), callback_fcn);
   }
 
   {
@@ -511,6 +528,27 @@ void StateMonitor::timerMain() {
 }
 
 //}
+
+/* timerErrorPublishing() //{ */
+
+void StateMonitor::timerErrorPublishing() {
+  if (!is_initialized_) {
+    return;
+  }
+
+  std::scoped_lock lck(errorgraph_mtx_);
+
+  mrs_msgs::msg::ErrorgraphElementArray root_errors_msg;
+  root_errors_msg.stamp = clock_->now();
+
+  const auto root_errors = errorgraph_.find_error_roots();
+
+  for (const auto &error : root_errors) {
+    root_errors_msg.elements.push_back(error->to_msg());
+  }
+
+  ph_root_errors_.publish(root_errors_msg);
+}
 
 /* timerUavState() //{ */
 

@@ -186,7 +186,9 @@ def generate_launch_description():
             ("~/mass_estimate_in", "control_manager/mass_estimate"),
             ("~/hw_api_magnetic_field_in", "hw_api/magnetic_field"),
 
+            # Errorgraph topics
             ("~/errors_in", "errors"),
+            ("~/errors_out", "root_errors"),
         ],
     )
 
