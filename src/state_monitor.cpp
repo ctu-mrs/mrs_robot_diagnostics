@@ -1,5 +1,3 @@
-/* includes //{ */
-
 #include <rclcpp/rclcpp.hpp>
 #include <pluginlib/class_loader.hpp>
 
@@ -43,11 +41,10 @@
 
 #include <mrs_robot_diagnostics/enums/uav_state.h>
 #include <mrs_robot_diagnostics/enums/tracker_state.h>
+#include <mrs_robot_diagnostics/enums/robot_type.h>
 #include <mrs_robot_diagnostics/enums/enum_helpers.h>
 
 #include <mrs_robot_diagnostics/sensor_handler.h>
-
-//}
 
 #if USE_ROS_TIMER == 1
 typedef mrs_lib::ROSTimer TimerType;
@@ -57,7 +54,6 @@ typedef mrs_lib::ThreadTimer TimerType;
 
 namespace mrs_robot_diagnostics
 {
-
 namespace state_monitor
 {
 
@@ -77,7 +73,6 @@ public:
   std::string topic;
 };
 
-/* class StateMonitor //{ */
 class StateMonitor : public mrs_lib::Node {
 
 public:
@@ -120,16 +115,9 @@ private:
   const mrs_lib::errorgraph::node_id_t autostart_node_id_ = {"AutomaticStart", "main"};
 
   std::string _robot_name_;
-  int _robot_type_id_;
+  robot_type_t robot_type_;
 
   std::vector<mrs_msgs::msg::SensorStatus> available_sensors_;
-
-  // TODO to remove
-  // // Robot type mapping
-  // std::map<std::string, int> robot_type_id_map_ = {
-  //     {"multirotor", 0},
-  //     {"boat", 1},
-  // };
 
   rclcpp::Duration not_reporting_delay_;
 
@@ -219,6 +207,8 @@ private:
   subscriptionResult_t<sh_T> processIncomingMessage(mrs_lib::SubscriberHandler<sh_T> &sh);
 
   tracker_state_t parse_tracker_state(mrs_msgs::msg::ControlManagerDiagnostics::ConstSharedPtr control_manager_diagnostics);
+  robot_type_t parse_robot_type(const std::string &robot_type_str);
+
   state_t parse_uav_state(mrs_msgs::msg::HwApiStatus::ConstSharedPtr hw_api_status,
                           mrs_msgs::msg::ControlManagerDiagnostics::ConstSharedPtr control_manager_diagnostics);
   mrs_msgs::msg::GeneralRobotInfo parse_general_robot_info(sensor_msgs::msg::BatteryState::ConstSharedPtr battery_state);
@@ -242,8 +232,6 @@ private:
   mrs_msgs::msg::UavInfo init_uav_info();
   mrs_msgs::msg::SystemHealthInfo init_system_health_info();
 };
-
-//}
 
 StateMonitor::StateMonitor(rclcpp::NodeOptions options) : mrs_lib::Node("state_monitor", options), not_reporting_delay_(rclcpp::Duration::from_seconds(0.0)) {
 
@@ -278,6 +266,8 @@ void StateMonitor::initialize() {
   std::string robot_type;
   param_loader.loadParam("robot_name", _robot_name_);
   param_loader.loadParam("robot_type", robot_type);
+
+  robot_type_ = parse_robot_type(robot_type);
 
   auto main_timer_rate        = param_loader.loadParam2<double>("robot_diagnostics/main_timer_rate");
   auto error_publisher_rate   = param_loader.loadParam2<double>("robot_diagnostics/error_publisher_rate");
@@ -464,8 +454,6 @@ void StateMonitor::initialize() {
 // |                           timers                           |
 // --------------------------------------------------------------
 
-/* timerMain() //{ */
-
 void StateMonitor::timerMain() {
   if (!is_initialized_) {
     return;
@@ -527,10 +515,6 @@ void StateMonitor::timerMain() {
     sh_mass_nominal_.setNoMessageTimeout(mrs_lib::no_timeout);
 }
 
-//}
-
-/* timerErrorPublishing() //{ */
-
 void StateMonitor::timerErrorPublishing() {
   if (!is_initialized_) {
     return;
@@ -549,8 +533,6 @@ void StateMonitor::timerErrorPublishing() {
 
   ph_root_errors_.publish(root_errors_msg);
 }
-
-/* timerUavState() //{ */
 
 void StateMonitor::timerUavState() {
   if (!is_initialized_) {
@@ -577,9 +559,6 @@ void StateMonitor::timerUavState() {
   ph_uav_state_.publish(uav_state_msg);
 }
 
-//}
-
-/* timerUpdateSensorStatus() //{ */
 void StateMonitor::timerUpdateSensorStatus() {
 
   if (!is_initialized_) {
@@ -593,20 +572,16 @@ void StateMonitor::timerUpdateSensorStatus() {
     available_sensors_.push_back(sensor_status_msg);
   }
 }
-//}
 
 // | ------------------------ callbacks ----------------------- |
 
-/* cbk_errorgraph_element() //{ */
 void StateMonitor::cbk_errorgraph_element(const mrs_msgs::msg::ErrorgraphElement::ConstSharedPtr element_msg) {
   std::scoped_lock lck(errorgraph_mtx_);
   errorgraph_.add_element_from_msg(*element_msg);
 }
-//}
 
 // | -------------------- support functions ------------------- |
 
-/* cov2eigen() //{ */
 Eigen::Matrix3d cov2eigen(const std::array<double, 9> &msg_cov) {
   Eigen::Matrix3d cov;
   for (int r = 0; r < 3; r++)
@@ -614,9 +589,7 @@ Eigen::Matrix3d cov2eigen(const std::array<double, 9> &msg_cov) {
       cov(r, c) = msg_cov.at(r + 3 * c);
   return cov;
 }
-//}
 
-/* extractComponents() //{ */
 std::vector<std::string> StateMonitor::extractComponents(const std::string &input) {
   std::vector<std::string> result;
   std::stringstream ss(input);
@@ -628,9 +601,7 @@ std::vector<std::string> StateMonitor::extractComponents(const std::string &inpu
   }
   return result;
 }
-//}
 
-/* processIncomingMessage() //{ */
 template <typename sh_T>
 StateMonitor::subscriptionResult_t<sh_T> StateMonitor::processIncomingMessage(mrs_lib::SubscriberHandler<sh_T> &sh) {
   StateMonitor::subscriptionResult_t<sh_T> msg;
@@ -644,11 +615,24 @@ StateMonitor::subscriptionResult_t<sh_T> StateMonitor::processIncomingMessage(mr
   }
   return msg;
 }
-//}
+
+robot_type_t StateMonitor::parse_robot_type(const std::string &robot_type_str) {
+
+  // Convert to lowercase for case-insensitive comparison
+  std::string lower_str = robot_type_str;
+  std::transform(lower_str.begin(), lower_str.end(), lower_str.begin(), [](unsigned char c) { return std::tolower(c); });
+
+  if (lower_str == "multirotor") {
+    return robot_type_t::MULTIROTOR;
+  } else if (lower_str == "boat") {
+    return robot_type_t::BOAT;
+  } else {
+    return robot_type_t::UNKNOWN;
+  }
+}
 
 // | --------------------- Parsing methods -------------------- |
 
-/* parse_tracker_state() method //{ */
 tracker_state_t StateMonitor::parse_tracker_state(mrs_msgs::msg::ControlManagerDiagnostics::ConstSharedPtr control_manager_diagnostics) {
 
   if (control_manager_diagnostics == nullptr)
@@ -677,9 +661,7 @@ tracker_state_t StateMonitor::parse_tracker_state(mrs_msgs::msg::ControlManagerD
     return tracker_state_t::UNKNOWN;
   }
 }
-//}
 
-/* parse_uav_state() method //{ */
 state_t StateMonitor::parse_uav_state(mrs_msgs::msg::HwApiStatus::ConstSharedPtr hw_api_status,
                                       mrs_msgs::msg::ControlManagerDiagnostics::ConstSharedPtr control_manager_diagnostics) {
   if (hw_api_status == nullptr || control_manager_diagnostics == nullptr)
@@ -728,14 +710,12 @@ state_t StateMonitor::parse_uav_state(mrs_msgs::msg::HwApiStatus::ConstSharedPtr
     return state_t::UNKNOWN;
   }
 }
-//}
 
-/* parse_general_robot_info() method //{ */
 mrs_msgs::msg::GeneralRobotInfo StateMonitor::parse_general_robot_info(sensor_msgs::msg::BatteryState::ConstSharedPtr battery_state) {
   mrs_msgs::msg::GeneralRobotInfo msg = init_general_robot_info();
   msg.stamp                           = clock_->now();
   msg.robot_name                      = _robot_name_;
-  msg.robot_type                      = _robot_type_id_;
+  msg.robot_type                      = static_cast<int>(robot_type_);
 
   const bool is_battery_state_valid = battery_state != nullptr;
 
@@ -792,9 +772,6 @@ mrs_msgs::msg::GeneralRobotInfo StateMonitor::parse_general_robot_info(sensor_ms
   }
   return msg;
 }
-//}
-
-/* parse_state_estimation_info() //{ */
 
 mrs_msgs::msg::StateEstimationInfo StateMonitor::parse_state_estimation_info(mrs_msgs::msg::EstimationDiagnostics::ConstSharedPtr estimation_diagnostics,
                                                                              mrs_msgs::msg::Float64Stamped::ConstSharedPtr local_heading,
@@ -841,10 +818,6 @@ mrs_msgs::msg::StateEstimationInfo StateMonitor::parse_state_estimation_info(mrs
   return msg;
 }
 
-//}
-
-/* parse_control_info() //{ */
-
 mrs_msgs::msg::ControlInfo StateMonitor::parse_control_info(mrs_msgs::msg::ControlManagerDiagnostics::ConstSharedPtr control_manager_diagnostics,
                                                             std_msgs::msg::Float64::ConstSharedPtr thrust) {
 
@@ -866,10 +839,6 @@ mrs_msgs::msg::ControlInfo StateMonitor::parse_control_info(mrs_msgs::msg::Contr
   return msg;
 }
 
-//}
-
-/* parse_collision_avoidance_info() //{ */
-
 mrs_msgs::msg::CollisionAvoidanceInfo
 StateMonitor::parse_collision_avoidance_info(mrs_msgs::msg::MpcTrackerDiagnostics::ConstSharedPtr mpc_tracker_diagnostics) {
   mrs_msgs::msg::CollisionAvoidanceInfo msg = init_collision_avoidance_info();
@@ -884,10 +853,6 @@ StateMonitor::parse_collision_avoidance_info(mrs_msgs::msg::MpcTrackerDiagnostic
 
   return msg;
 }
-
-//}
-
-/* parse_uav_info() //{ */
 
 mrs_msgs::msg::UavInfo StateMonitor::parse_uav_info(mrs_msgs::msg::HwApiStatus::ConstSharedPtr hw_api_status,
                                                     mrs_msgs::msg::UavStatus::ConstSharedPtr uav_status, std_msgs::msg::Float64::ConstSharedPtr mass_nominal,
@@ -918,9 +883,6 @@ mrs_msgs::msg::UavInfo StateMonitor::parse_uav_info(mrs_msgs::msg::HwApiStatus::
   return msg;
 }
 
-//}
-
-/* parse_system_health_info() method //{ */
 mrs_msgs::msg::SystemHealthInfo StateMonitor::parse_system_health_info(mrs_msgs::msg::UavStatus::ConstSharedPtr uav_status,
                                                                        sensor_msgs::msg::NavSatFix::ConstSharedPtr gnss,
                                                                        sensor_msgs::msg::MagneticField::ConstSharedPtr magnetic_field) {
@@ -964,12 +926,8 @@ mrs_msgs::msg::SystemHealthInfo StateMonitor::parse_system_health_info(mrs_msgs:
 
   return msg;
 }
-//}
-
 
 // | -------------------- Msg init methods -------------------- |
-
-/* init_general_robot_info() method //{ */
 mrs_msgs::msg::GeneralRobotInfo StateMonitor::init_general_robot_info() {
   mrs_msgs::msg::GeneralRobotInfo msg;
 
@@ -986,9 +944,7 @@ mrs_msgs::msg::GeneralRobotInfo StateMonitor::init_general_robot_info() {
 
   return msg;
 }
-//}
 
-/* init_state_estimation_info() method //{ */
 mrs_msgs::msg::StateEstimationInfo StateMonitor::init_state_estimation_info() {
   mrs_msgs::msg::StateEstimationInfo msg;
 
@@ -1025,9 +981,7 @@ mrs_msgs::msg::StateEstimationInfo StateMonitor::init_state_estimation_info() {
 
   return msg;
 }
-//}
 
-/* init_control_info() method //{ */
 mrs_msgs::msg::ControlInfo StateMonitor::init_control_info() {
   mrs_msgs::msg::ControlInfo msg;
 
@@ -1037,9 +991,7 @@ mrs_msgs::msg::ControlInfo StateMonitor::init_control_info() {
 
   return msg;
 }
-//}
 
-/* init_collision_avoidance_info() method //{ */
 mrs_msgs::msg::CollisionAvoidanceInfo StateMonitor::init_collision_avoidance_info() {
   mrs_msgs::msg::CollisionAvoidanceInfo msg;
 
@@ -1048,9 +1000,7 @@ mrs_msgs::msg::CollisionAvoidanceInfo StateMonitor::init_collision_avoidance_inf
 
   return msg;
 }
-//}
 
-/* init_uav_info() method //{ */
 mrs_msgs::msg::UavInfo StateMonitor::init_uav_info() {
   mrs_msgs::msg::UavInfo msg;
 
@@ -1063,9 +1013,7 @@ mrs_msgs::msg::UavInfo StateMonitor::init_uav_info() {
 
   return msg;
 }
-//}
 
-/* init_system_health_info() method //{ */
 mrs_msgs::msg::SystemHealthInfo StateMonitor::init_system_health_info() {
   mrs_msgs::msg::SystemHealthInfo msg;
 
@@ -1084,7 +1032,6 @@ mrs_msgs::msg::SystemHealthInfo StateMonitor::init_system_health_info() {
 
   return msg;
 }
-//}
 
 } // namespace state_monitor
 } // namespace mrs_robot_diagnostics
