@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.28)
 project(mrs_robot_diagnostics)
 
 # set the correct standards
@@ -37,105 +37,129 @@ set(DEPENDENCIES
   mrs_lib
   tf2_ros
   pluginlib
-  )
+)
 
 set(LIBRARIES
   MrsRobotDiagnostics_StateMonitor
   MrsRobotDiagnostics_CameraHandler
-  )
+)
 
 foreach(DEP IN LISTS DEPENDENCIES)
   find_package(${DEP} REQUIRED)
 endforeach()
 
-include_directories(
-  include
-  ${rclcpp_INCLUDE_DIRS}
-  ${mrs_lib_INCLUDE_DIRS}
-  )
+## --------------------------------------------------------------
+## |                      Interface Library                     |
+## --------------------------------------------------------------
 
+# Interface library for the plugin API
+add_library(MrsRobotDiagnostics_MrsRobotDiagnostics INTERFACE)
+add_library(mrs_robot_diagnostics::mrs_robot_diagnostics ALIAS MrsRobotDiagnostics_MrsRobotDiagnostics)
+
+set_target_properties(MrsRobotDiagnostics_MrsRobotDiagnostics
+  PROPERTIES
+    EXPORT_NAME mrs_robot_diagnostics
+    OUTPUT_NAME mrs_robot_diagnostics
+)
+
+target_sources(MrsRobotDiagnostics_MrsRobotDiagnostics
+  INTERFACE FILE_SET HEADERS BASE_DIRS "include"
+  FILES
+    "include/mrs_robot_diagnostics/enums/robot_type.h"
+    "include/mrs_robot_diagnostics/enums/tracker_state.h"
+    "include/mrs_robot_diagnostics/enums/uav_state.h"
+    "include/mrs_robot_diagnostics/enums/enum_helpers.h"
+    "include/mrs_robot_diagnostics/enums/enum_macros.h"
+    "include/mrs_robot_diagnostics/sensor_handler.h"  
+)
+
+target_link_libraries(MrsRobotDiagnostics_MrsRobotDiagnostics
+  INTERFACE
+    rclcpp::rclcpp
+    rclcpp_components::component
+    pluginlib::pluginlib
+    mrs_lib::mrs_lib
+    ${mrs_msgs_TARGETS}
+    tf2_ros::tf2_ros
+)
 
 ## --------------------------------------------------------------
 ## |                           Compile                          |
 ## --------------------------------------------------------------
 
+## | ------------ MrsRobotDiagnostics_StateMonitor ------------ |
 
-## | ------------ MRSRobotDiagnostics_StateMonitor ------------ |
-
-## Declare a C++ library
 add_library(MrsRobotDiagnostics_StateMonitor SHARED
   src/state_monitor.cpp
-  )
+)
 
-ament_target_dependencies(MrsRobotDiagnostics_StateMonitor
-  ${DEPENDENCIES}
-  )
+target_link_libraries(MrsRobotDiagnostics_StateMonitor
+  PRIVATE
+    mrs_robot_diagnostics::mrs_robot_diagnostics  
+)
 
-rclcpp_components_register_nodes(MrsRobotDiagnostics_StateMonitor PLUGIN "mrs_robot_diagnostics::state_monitor::StateMonitor" EXECUTABLE MrsRobotDiagnostics_StateMonitor)
+rclcpp_components_register_nodes(MrsRobotDiagnostics_StateMonitor "mrs_robot_diagnostics::state_monitor::StateMonitor")
 
 target_compile_definitions(MrsRobotDiagnostics_StateMonitor PRIVATE USE_ROS_TIMER=${USE_ROS_TIMER})
 
-## | ----------- MRSRobotDiagnostics_CameraHandler ------------ |
-## Declare a C++ add_library
+## | ----------- MrsRobotDiagnostics_CameraHandler ------------ |
+
 add_library(MrsRobotDiagnostics_CameraHandler SHARED
   src/sensor_handler_plugins/camera_handler.cpp
-  )
+)
 
-ament_target_dependencies(MrsRobotDiagnostics_CameraHandler
-  ${DEPENDENCIES}
+target_link_libraries(MrsRobotDiagnostics_CameraHandler
+  PRIVATE
+    mrs_robot_diagnostics::mrs_robot_diagnostics 
 )
 
 target_compile_definitions(MrsRobotDiagnostics_CameraHandler PRIVATE USE_ROS_TIMER=${USE_ROS_TIMER})
 
 ## --------------------------------------------------------------
-## |                       export plugins                       |
+## |                       Export plugins                       |
 ## --------------------------------------------------------------
 
-# <package of the base class>, <relative path to the xml>
 pluginlib_export_plugin_description_file(mrs_robot_diagnostics plugins.xml)
 
 ## --------------------------------------------------------------
 ## |                           Install                          |
 ## --------------------------------------------------------------
 
-ament_export_libraries(
-
-  ${LIBRARIES}
-  )
-
 install(
-  TARGETS ${LIBRARIES}
+  TARGETS
+    MrsRobotDiagnostics_MrsRobotDiagnostics  
+    ${LIBRARIES}
   EXPORT export_${PROJECT_NAME}
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin
-  )
-
-install(
-  DIRECTORY include
-  DESTINATION .
-  )
+  FILE_SET HEADERS DESTINATION "include/${PROJECT_NAME}"
+)
 
 install(
   DIRECTORY launch
   DESTINATION share/${PROJECT_NAME}
-  )
+)
 
 install(
   DIRECTORY config
   DESTINATION share/${PROJECT_NAME}
-  )
-
-ament_export_include_directories(
-  include
-  )
+)
 
 ament_export_targets(
   export_${PROJECT_NAME} HAS_LIBRARY_TARGET
-  )
+)
+
+ament_export_include_directories(
+  "include/${PROJECT_NAME}"
+)
+
+ament_export_libraries(
+  ${LIBRARIES}
+)
 
 ament_export_dependencies(
   ${DEPENDENCIES}
-  )
+)
 
 ament_package()
