@@ -233,7 +233,7 @@ private:
   mrs_msgs::msg::SystemHealthInfo init_system_health_info();
 };
 
-StateMonitor::StateMonitor(rclcpp::NodeOptions options) : mrs_lib::Node("state_monitor", options), not_reporting_delay_(rclcpp::Duration::from_seconds(0.0)) {
+StateMonitor::StateMonitor(rclcpp::NodeOptions options) : mrs_lib::Node("state_monitor", options), errorgraph_(this_node_ptr()->get_clock()), not_reporting_delay_(rclcpp::Duration::from_seconds(0.0)){
 
   node_  = this_node_ptr();
   clock_ = node_->get_clock();
