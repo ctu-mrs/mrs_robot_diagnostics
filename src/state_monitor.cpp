@@ -111,6 +111,7 @@ private:
   std::mutex errorgraph_mtx_;
 
   // TODO to test
+  rclcpp::Duration not_reporting_delay_;
   mrs_lib::errorgraph::Errorgraph errorgraph_;
   const mrs_lib::errorgraph::node_id_t autostart_node_id_ = {"AutomaticStart", "main"};
 
@@ -118,8 +119,6 @@ private:
   robot_type_t robot_type_;
 
   std::vector<mrs_msgs::msg::SensorStatus> available_sensors_;
-
-  rclcpp::Duration not_reporting_delay_;
 
   // | ---------------------- ROS subscribers --------------------- |
   std::shared_ptr<mrs_lib::TimeoutManager> tim_mgr_;

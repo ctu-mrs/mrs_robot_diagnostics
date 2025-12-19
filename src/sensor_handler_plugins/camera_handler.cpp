@@ -77,7 +77,7 @@ bool CameraHandler::initialize(rclcpp::Node::SharedPtr &node, const std::string 
   sh_camera_orientation_ = mrs_lib::SubscriberHandler<std_msgs::msg::Float32MultiArray>(shopts, camera_orientation_topic_name);
 
   // Publisher
-  ph_camera_details_ = mrs_lib::PublisherHandler<mrs_msgs::msg::SensorInfo>(node, "out/sensor_info");
+  ph_camera_details_ = mrs_lib::PublisherHandler<mrs_msgs::msg::SensorInfo>(node, "~/sensor_info_out");
 
   RCLCPP_INFO(node->get_logger(), "Camera handler '%s' initialized in namespace '%s'", name.c_str(), name_space.c_str());
   is_initialized_ = true;
