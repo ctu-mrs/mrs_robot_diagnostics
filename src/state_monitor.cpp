@@ -106,13 +106,13 @@ private:
   std::shared_ptr<mrs_lib::ParamLoader> param_loader_;
 
   std::mutex uav_state_mutex_;
-  enum_helpers::enum_updater<state_t> uav_state_ = {"UAV STATE", state_t::UNKNOWN};
+  enum_helpers::enum_updater<state_t> uav_state_;
 
   std::mutex errorgraph_mtx_;
 
   // TODO to test
-  rclcpp::Duration not_reporting_delay_;
   mrs_lib::errorgraph::Errorgraph errorgraph_;
+  rclcpp::Duration not_reporting_delay_;
   const mrs_lib::errorgraph::node_id_t autostart_node_id_ = {"AutomaticStart", "main"};
 
   std::string _robot_name_;
@@ -232,7 +232,10 @@ private:
   mrs_msgs::msg::SystemHealthInfo init_system_health_info();
 };
 
-StateMonitor::StateMonitor(rclcpp::NodeOptions options) : mrs_lib::Node("state_monitor", options), errorgraph_(this_node_ptr()->get_clock()), not_reporting_delay_(rclcpp::Duration::from_seconds(0.0)){
+StateMonitor::StateMonitor(rclcpp::NodeOptions options)
+    : mrs_lib::Node("state_monitor", options), uav_state_(this_node_ptr()->get_logger(), "UAV STATE", state_t::UNKNOWN), errorgraph_(this_node_ptr()->get_clock()),
+      not_reporting_delay_(rclcpp::Duration::from_seconds(0.0)) {
+
 
   node_  = this_node_ptr();
   clock_ = node_->get_clock();
