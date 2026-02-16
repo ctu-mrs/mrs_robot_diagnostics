@@ -2,6 +2,7 @@
 time stamp
 string robot_name
 uint8  robot_type
+string robot_ip_address
 
 mrs_robot_diagnostics/BatteryState battery_state
 

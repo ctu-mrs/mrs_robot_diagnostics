@@ -24,6 +24,7 @@ public:
 
 protected:
   ros::Time last_msg_time_;
+  std::string sensor_topic_;
   double current_rate_;
 
   double calculateRate(const ros::Time &current_msg_time) {

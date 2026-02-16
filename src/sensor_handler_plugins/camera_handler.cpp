@@ -29,6 +29,8 @@ bool CameraHandler::initialize(ros::NodeHandle &nh, const std::string &name, con
   nh.getParam("image_topic", image_topic_name);
   ROS_INFO(" [CameraHandler] Subscribing to image topic: %s", image_topic_name.c_str());
 
+  sensor_topic_ = image_topic_name;
+
   std::string camera_info_topic_name;
   nh.getParam("camera_info_topic", camera_info_topic_name);
   ROS_INFO(" [CameraHandler] Subscribing to camera info topic: %s", camera_info_topic_name.c_str());
@@ -68,8 +70,9 @@ bool CameraHandler::initialize(ros::NodeHandle &nh, const std::string &name, con
 
 mrs_robot_diagnostics::SensorStatus CameraHandler::updateStatus() {
   mrs_robot_diagnostics::SensorStatus ss_msg;
-  ss_msg.name = _name_;
-  ss_msg.type = mrs_robot_diagnostics::SensorStatus::TYPE_CAMERA;
+  ss_msg.name  = _name_;
+  ss_msg.type  = mrs_robot_diagnostics::SensorStatus::TYPE_CAMERA;
+  ss_msg.topic = sensor_topic_;
 
   if (!is_initialized_) {
     ss_msg.ready  = false;
@@ -180,6 +183,7 @@ mrs_robot_diagnostics::SensorStatus CameraHandler::updateStatus() {
   }
 
   json json_msg = {
+      {"camera_topic", sensor_topic_},
       {"camera_frame_tf", camera_tf_json},
       {"optical_frame_tf", optical_tf_json},
       {"camera_info", camera_info_json},

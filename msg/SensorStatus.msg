@@ -12,4 +12,5 @@ uint8 TYPE_LIDAR        = 6
 uint8 TYPE_CAMERA       = 7
 
 bool    ready
+string  topic
 float32 rate  # [hz]
