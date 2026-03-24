@@ -67,7 +67,11 @@ class SensorHandlerParams {
 public:
   SensorHandlerParams(const std::string &address, const std::string &name_space, const std::string &sensor_name, const std::string &type,
                       const std::string &topic)
-      : address(address), name_space(name_space), sensor_name(sensor_name), type(type), topic(topic) {
+      : address(address)
+      , name_space(name_space)
+      , sensor_name(sensor_name)
+      , type(type)
+      , topic(topic) {
   }
 
 public:
@@ -86,14 +90,14 @@ public:
   template <typename T>
   struct subscriptionResult_t
   {
-    bool hasNewMessage;
+    bool                       hasNewMessage;
     typename T::ConstSharedPtr message;
   };
 
 private:
   using out_diags_msg_t = mrs_msgs::msg::UavDiagnostics;
 
-  rclcpp::Node::SharedPtr node_;
+  rclcpp::Node::SharedPtr  node_;
   rclcpp::Clock::SharedPtr clock_;
 
   rclcpp::CallbackGroup::SharedPtr cbkgrp_subs_;
@@ -105,23 +109,23 @@ private:
   void shutdown();
 
   std::atomic<bool> is_initialized_ = false;
-  std::string _uav_name_;
-  std::string _body_frame_;
+  std::string       _uav_name_;
+  std::string       _body_frame_;
 
   std::shared_ptr<mrs_lib::ParamLoader> param_loader_;
 
-  std::mutex uav_state_mutex_;
+  std::mutex                          uav_state_mutex_;
   enum_helpers::enum_updater<state_t> uav_state_;
 
   std::mutex errorgraph_mtx_;
 
   // TODO to test
-  mrs_lib::errorgraph::Errorgraph errorgraph_;
-  rclcpp::Duration not_reporting_delay_;
+  mrs_lib::errorgraph::Errorgraph      errorgraph_;
+  rclcpp::Duration                     not_reporting_delay_;
   const mrs_lib::errorgraph::node_id_t autostart_node_id_ = {"AutomaticStart", "main"};
 
-  std::string _robot_name_;
-  std::string robot_ip_address_;
+  std::string  _robot_name_;
+  std::string  robot_ip_address_;
   robot_type_t robot_type_;
 
   std::vector<mrs_msgs::msg::SensorStatus> available_sensors_;
@@ -131,40 +135,40 @@ private:
 
   // | -------------------- GeneralRobotInfo -------------------- |
   mrs_lib::PublisherHandler<mrs_msgs::msg::GeneralRobotInfo> ph_general_robot_info_;
-  mrs_msgs::msg::GeneralRobotInfo last_general_robot_info_;
-  mrs_lib::SubscriberHandler<std_msgs::msg::Bool> sh_automatic_start_can_takeoff_;
+  mrs_msgs::msg::GeneralRobotInfo                            last_general_robot_info_;
+  mrs_lib::SubscriberHandler<std_msgs::msg::Bool>            sh_automatic_start_can_takeoff_;
   mrs_lib::SubscriberHandler<sensor_msgs::msg::BatteryState> sh_battery_state_;
 
   // | ------------------- StateEstimationInfo ------------------ |
-  mrs_lib::PublisherHandler<mrs_msgs::msg::StateEstimationInfo> ph_state_estimation_info_;
-  mrs_msgs::msg::StateEstimationInfo last_state_estimation_info_;
+  mrs_lib::PublisherHandler<mrs_msgs::msg::StateEstimationInfo>    ph_state_estimation_info_;
+  mrs_msgs::msg::StateEstimationInfo                               last_state_estimation_info_;
   mrs_lib::SubscriberHandler<mrs_msgs::msg::EstimationDiagnostics> sh_estimation_diagnostics_;
-  mrs_lib::SubscriberHandler<sensor_msgs::msg::NavSatFix> sh_hw_api_gnss_;
-  mrs_lib::SubscriberHandler<mrs_msgs::msg::Float64Stamped> sh_control_manager_heading_;
-  mrs_lib::SubscriberHandler<mrs_msgs::msg::Float64Stamped> sh_hw_api_mag_heading_;
+  mrs_lib::SubscriberHandler<sensor_msgs::msg::NavSatFix>          sh_hw_api_gnss_;
+  mrs_lib::SubscriberHandler<mrs_msgs::msg::Float64Stamped>        sh_control_manager_heading_;
+  mrs_lib::SubscriberHandler<mrs_msgs::msg::Float64Stamped>        sh_hw_api_mag_heading_;
 
   // | ----------------------- ControlInfo ---------------------- |
-  mrs_lib::PublisherHandler<mrs_msgs::msg::ControlInfo> ph_control_info_;
-  mrs_msgs::msg::ControlInfo last_control_info_;
+  mrs_lib::PublisherHandler<mrs_msgs::msg::ControlInfo>                ph_control_info_;
+  mrs_msgs::msg::ControlInfo                                           last_control_info_;
   mrs_lib::SubscriberHandler<mrs_msgs::msg::ControlManagerDiagnostics> sh_control_manager_diagnostics_;
-  mrs_lib::SubscriberHandler<std_msgs::msg::Float64> sh_control_manager_thrust_;
+  mrs_lib::SubscriberHandler<std_msgs::msg::Float64>                   sh_control_manager_thrust_;
 
   // | ----------------- CollisionAvoidanceInfo ----------------- |
   mrs_lib::PublisherHandler<mrs_msgs::msg::CollisionAvoidanceInfo> ph_collision_avoidance_info_;
-  mrs_msgs::msg::CollisionAvoidanceInfo last_collision_avoidance_info_;
+  mrs_msgs::msg::CollisionAvoidanceInfo                            last_collision_avoidance_info_;
   mrs_lib::SubscriberHandler<mrs_msgs::msg::MpcTrackerDiagnostics> sh_mpc_tracker_diagnostics_;
 
   // | ------------------------- UavInfo ------------------------ |
-  mrs_lib::PublisherHandler<mrs_msgs::msg::UavInfo> ph_uav_info_;
-  mrs_msgs::msg::UavInfo last_uav_info_;
+  mrs_lib::PublisherHandler<mrs_msgs::msg::UavInfo>      ph_uav_info_;
+  mrs_msgs::msg::UavInfo                                 last_uav_info_;
   mrs_lib::SubscriberHandler<mrs_msgs::msg::HwApiStatus> sh_hw_api_status_;
-  mrs_lib::SubscriberHandler<mrs_msgs::msg::UavStatus> sh_uav_status_;
-  mrs_lib::SubscriberHandler<std_msgs::msg::Float64> sh_mass_nominal_;
-  mrs_lib::SubscriberHandler<std_msgs::msg::Float64> sh_mass_estimate_;
+  mrs_lib::SubscriberHandler<mrs_msgs::msg::UavStatus>   sh_uav_status_;
+  mrs_lib::SubscriberHandler<std_msgs::msg::Float64>     sh_mass_nominal_;
+  mrs_lib::SubscriberHandler<std_msgs::msg::Float64>     sh_mass_estimate_;
 
   // | -------------------- SystemHealthInfo -------------------- |
-  mrs_lib::PublisherHandler<mrs_msgs::msg::SystemHealthInfo> ph_system_health_info_;
-  mrs_msgs::msg::SystemHealthInfo last_system_health_info_;
+  mrs_lib::PublisherHandler<mrs_msgs::msg::SystemHealthInfo>  ph_system_health_info_;
+  mrs_msgs::msg::SystemHealthInfo                             last_system_health_info_;
   mrs_lib::SubscriberHandler<sensor_msgs::msg::MagneticField> sh_hw_api_magnetic_field_;
 
   // | ------------------------ UAV state ----------------------- |
@@ -174,32 +178,32 @@ private:
 
   // | ----------------------- Root errors ----------------------- |
   mrs_lib::PublisherHandler<mrs_msgs::msg::ErrorgraphElementArray> ph_root_errors_;
-  mrs_lib::SubscriberHandler<mrs_msgs::msg::ErrorgraphElement> sh_errorgraph_error_msg_;
+  mrs_lib::SubscriberHandler<mrs_msgs::msg::ErrorgraphElement>     sh_errorgraph_error_msg_;
 
   std::unique_ptr<pluginlib::ClassLoader<mrs_robot_diagnostics::SensorHandler>>
-      sensor_handler_loader_;                                                          // pluginlib loader of dynamically loaded sensor handlers
-  std::vector<std::string> _sensor_handler_names_;                                     // list of sensor handlers names
-  std::map<std::string, SensorHandlerParams> sensor_handlers_params_;                  // map between sensor handler names and params
-  std::vector<std::shared_ptr<mrs_robot_diagnostics::SensorHandler>> sensor_handlers_; // list of sensor handlers, routines are callable from this
-  std::mutex mutex_sensor_handler_list_;
+                                                                     sensor_handler_loader_;  // pluginlib loader of dynamically loaded sensor handlers
+  std::vector<std::string>                                           _sensor_handler_names_;  // list of sensor handlers names
+  std::map<std::string, SensorHandlerParams>                         sensor_handlers_params_; // map between sensor handler names and params
+  std::vector<std::shared_ptr<mrs_robot_diagnostics::SensorHandler>> sensor_handlers_;        // list of sensor handlers, routines are callable from this
+  std::mutex                                                         mutex_sensor_handler_list_;
 
   // | ----------------------- main timer ----------------------- |
 
   // timer for main loop
   std::shared_ptr<TimerType> timer_main_;
-  void timerMain();
+  void                       timerMain();
 
   // timer error publishing
   std::shared_ptr<TimerType> timer_error_publishing_;
-  void timerErrorPublishing();
+  void                       timerErrorPublishing();
 
   // timer for uav state publishing
   std::shared_ptr<TimerType> timer_uav_state_;
-  void timerUavState();
+  void                       timerUavState();
 
   // timer for sensor status updating
   std::shared_ptr<TimerType> timer_update_sensor_status_;
-  void timerUpdateSensorStatus();
+  void                       timerUpdateSensorStatus();
 
   // | ------------------------ Callbacks ----------------------- |
   // TODO to test errorgraph_
@@ -212,35 +216,37 @@ private:
   subscriptionResult_t<sh_T> processIncomingMessage(mrs_lib::SubscriberHandler<sh_T> &sh);
 
   tracker_state_t parse_tracker_state(mrs_msgs::msg::ControlManagerDiagnostics::ConstSharedPtr control_manager_diagnostics);
-  robot_type_t parse_robot_type(const std::string &robot_type_str);
+  robot_type_t    parse_robot_type(const std::string &robot_type_str);
 
-  state_t parse_uav_state(mrs_msgs::msg::HwApiStatus::ConstSharedPtr hw_api_status,
-                          mrs_msgs::msg::ControlManagerDiagnostics::ConstSharedPtr control_manager_diagnostics);
-  mrs_msgs::msg::GeneralRobotInfo parse_general_robot_info(sensor_msgs::msg::BatteryState::ConstSharedPtr battery_state);
-  mrs_msgs::msg::StateEstimationInfo parse_state_estimation_info(mrs_msgs::msg::EstimationDiagnostics::ConstSharedPtr estimation_diagnostics,
-                                                                 mrs_msgs::msg::Float64Stamped::ConstSharedPtr local_heading,
-                                                                 sensor_msgs::msg::NavSatFix::ConstSharedPtr global_position,
-                                                                 mrs_msgs::msg::Float64Stamped::ConstSharedPtr global_heading);
-  mrs_msgs::msg::ControlInfo parse_control_info(mrs_msgs::msg::ControlManagerDiagnostics::ConstSharedPtr control_manager_diagnostics,
-                                                std_msgs::msg::Float64::ConstSharedPtr thrust);
+  state_t                               parse_uav_state(mrs_msgs::msg::HwApiStatus::ConstSharedPtr               hw_api_status,
+                                                        mrs_msgs::msg::ControlManagerDiagnostics::ConstSharedPtr control_manager_diagnostics);
+  mrs_msgs::msg::GeneralRobotInfo       parse_general_robot_info(sensor_msgs::msg::BatteryState::ConstSharedPtr battery_state);
+  mrs_msgs::msg::StateEstimationInfo    parse_state_estimation_info(mrs_msgs::msg::EstimationDiagnostics::ConstSharedPtr estimation_diagnostics,
+                                                                    mrs_msgs::msg::Float64Stamped::ConstSharedPtr        local_heading,
+                                                                    sensor_msgs::msg::NavSatFix::ConstSharedPtr          global_position,
+                                                                    mrs_msgs::msg::Float64Stamped::ConstSharedPtr        global_heading);
+  mrs_msgs::msg::ControlInfo            parse_control_info(mrs_msgs::msg::ControlManagerDiagnostics::ConstSharedPtr control_manager_diagnostics,
+                                                           std_msgs::msg::Float64::ConstSharedPtr                   thrust);
   mrs_msgs::msg::CollisionAvoidanceInfo parse_collision_avoidance_info(mrs_msgs::msg::MpcTrackerDiagnostics::ConstSharedPtr mpc_tracker_diagnostics);
-  mrs_msgs::msg::UavInfo parse_uav_info(mrs_msgs::msg::HwApiStatus::ConstSharedPtr hw_api_status, mrs_msgs::msg::UavStatus::ConstSharedPtr uav_status,
-                                        std_msgs::msg::Float64::ConstSharedPtr mass_nominal, std_msgs::msg::Float64::ConstSharedPtr mass_estimate);
-  mrs_msgs::msg::SystemHealthInfo parse_system_health_info(mrs_msgs::msg::UavStatus::ConstSharedPtr uav_status,
-                                                           sensor_msgs::msg::NavSatFix::ConstSharedPtr gnss,
+  mrs_msgs::msg::UavInfo          parse_uav_info(mrs_msgs::msg::HwApiStatus::ConstSharedPtr hw_api_status, mrs_msgs::msg::UavStatus::ConstSharedPtr uav_status,
+                                                 std_msgs::msg::Float64::ConstSharedPtr mass_nominal, std_msgs::msg::Float64::ConstSharedPtr mass_estimate);
+  mrs_msgs::msg::SystemHealthInfo parse_system_health_info(mrs_msgs::msg::UavStatus::ConstSharedPtr        uav_status,
+                                                           sensor_msgs::msg::NavSatFix::ConstSharedPtr     gnss,
                                                            sensor_msgs::msg::MagneticField::ConstSharedPtr magnetic_field);
 
-  mrs_msgs::msg::GeneralRobotInfo init_general_robot_info();
-  mrs_msgs::msg::StateEstimationInfo init_state_estimation_info();
-  mrs_msgs::msg::ControlInfo init_control_info();
+  mrs_msgs::msg::GeneralRobotInfo       init_general_robot_info();
+  mrs_msgs::msg::StateEstimationInfo    init_state_estimation_info();
+  mrs_msgs::msg::ControlInfo            init_control_info();
   mrs_msgs::msg::CollisionAvoidanceInfo init_collision_avoidance_info();
-  mrs_msgs::msg::UavInfo init_uav_info();
-  mrs_msgs::msg::SystemHealthInfo init_system_health_info();
+  mrs_msgs::msg::UavInfo                init_uav_info();
+  mrs_msgs::msg::SystemHealthInfo       init_system_health_info();
 };
 
 StateMonitor::StateMonitor(rclcpp::NodeOptions options)
-    : mrs_lib::Node("state_monitor", options), uav_state_(this_node_ptr()->get_logger(), "UAV STATE", state_t::UNKNOWN), errorgraph_(this_node_ptr()->get_clock()),
-      not_reporting_delay_(rclcpp::Duration::from_seconds(0.0)) {
+    : mrs_lib::Node("state_monitor", options)
+    , uav_state_(this_node_ptr()->get_logger(), "UAV STATE", state_t::UNKNOWN)
+    , errorgraph_(this_node_ptr()->get_clock())
+    , not_reporting_delay_(rclcpp::Duration::from_seconds(0.0)) {
 
 
   node_  = this_node_ptr();
@@ -304,7 +310,7 @@ void StateMonitor::initialize() {
                                                 << ", skipping IP resolution for this robot, if you are using the hostname to connect to the robot, "
                                                    "please check your network configuration and make sure the hostname is correct");
   } else {
-    char ip[INET_ADDRSTRLEN];
+    char  ip[INET_ADDRSTRLEN];
     void *addr = &((sockaddr_in *)res->ai_addr)->sin_addr;
     inet_ntop(AF_INET, addr, ip, sizeof(ip));
 
@@ -314,10 +320,10 @@ void StateMonitor::initialize() {
     freeaddrinfo(res);
   }
 
-  auto main_timer_rate        = param_loader.loadParam2<double>("robot_diagnostics/main_timer_rate");
-  auto error_publisher_rate   = param_loader.loadParam2<double>("robot_diagnostics/error_publisher_rate");
-  const auto state_timer_rate = param_loader.loadParam2<double>("robot_diagnostics/state_timer_rate");
-  not_reporting_delay_        = param_loader.loadParam2<rclcpp::Duration>("robot_diagnostics/not_reporting_delay");
+  auto       main_timer_rate      = param_loader.loadParam2<double>("robot_diagnostics/main_timer_rate");
+  auto       error_publisher_rate = param_loader.loadParam2<double>("robot_diagnostics/error_publisher_rate");
+  const auto state_timer_rate     = param_loader.loadParam2<double>("robot_diagnostics/state_timer_rate");
+  not_reporting_delay_            = param_loader.loadParam2<rclcpp::Duration>("robot_diagnostics/not_reporting_delay");
 
   std::string available_sensors_string;
   param_loader.loadParam("available_sensors", available_sensors_string);
@@ -504,20 +510,20 @@ void StateMonitor::timerMain() {
     return;
   }
   std::scoped_lock lck(uav_state_mutex_);
-  const auto now                         = clock_->now();
-  const auto uav_status                  = processIncomingMessage(sh_uav_status_);
-  const auto hw_api_gnss                 = processIncomingMessage(sh_hw_api_gnss_);
-  const auto battery_state               = processIncomingMessage(sh_battery_state_);
-  const auto hw_api_status               = processIncomingMessage(sh_hw_api_status_);
-  const auto control_manager_diagnostics = processIncomingMessage(sh_control_manager_diagnostics_);
-  const auto estimation_diagnostics      = processIncomingMessage(sh_estimation_diagnostics_);
-  const auto control_manager_heading     = processIncomingMessage(sh_control_manager_heading_);
-  const auto hw_api_mag_heading          = processIncomingMessage(sh_hw_api_mag_heading_);
-  const auto control_manager_thrust      = processIncomingMessage(sh_control_manager_thrust_);
-  const auto mpc_tracker_diagnostics     = processIncomingMessage(sh_mpc_tracker_diagnostics_);
-  const auto mass_nominal                = processIncomingMessage(sh_mass_nominal_);
-  const auto mass_estimate               = processIncomingMessage(sh_mass_estimate_);
-  const auto hw_api_magnetic_field       = processIncomingMessage(sh_hw_api_magnetic_field_);
+  const auto       now                         = clock_->now();
+  const auto       uav_status                  = processIncomingMessage(sh_uav_status_);
+  const auto       hw_api_gnss                 = processIncomingMessage(sh_hw_api_gnss_);
+  const auto       battery_state               = processIncomingMessage(sh_battery_state_);
+  const auto       hw_api_status               = processIncomingMessage(sh_hw_api_status_);
+  const auto       control_manager_diagnostics = processIncomingMessage(sh_control_manager_diagnostics_);
+  const auto       estimation_diagnostics      = processIncomingMessage(sh_estimation_diagnostics_);
+  const auto       control_manager_heading     = processIncomingMessage(sh_control_manager_heading_);
+  const auto       hw_api_mag_heading          = processIncomingMessage(sh_hw_api_mag_heading_);
+  const auto       control_manager_thrust      = processIncomingMessage(sh_control_manager_thrust_);
+  const auto       mpc_tracker_diagnostics     = processIncomingMessage(sh_mpc_tracker_diagnostics_);
+  const auto       mass_nominal                = processIncomingMessage(sh_mass_nominal_);
+  const auto       mass_estimate               = processIncomingMessage(sh_mass_estimate_);
+  const auto       hw_api_magnetic_field       = processIncomingMessage(sh_hw_api_magnetic_field_);
 
   if (hw_api_status.hasNewMessage || control_manager_diagnostics.hasNewMessage) {
     const auto new_state = parse_uav_state(hw_api_status.message, control_manager_diagnostics.message);
@@ -584,9 +590,9 @@ void StateMonitor::timerUavState() {
     return;
   }
   std::scoped_lock lck(uav_state_mutex_);
-  const auto now                         = clock_->now();
-  const auto hw_api_status               = processIncomingMessage(sh_hw_api_status_);
-  const auto control_manager_diagnostics = processIncomingMessage(sh_control_manager_diagnostics_);
+  const auto       now                         = clock_->now();
+  const auto       hw_api_status               = processIncomingMessage(sh_hw_api_status_);
+  const auto       control_manager_diagnostics = processIncomingMessage(sh_control_manager_diagnostics_);
 
   if (!hw_api_status.hasNewMessage && !control_manager_diagnostics.hasNewMessage)
     return;
@@ -637,8 +643,8 @@ Eigen::Matrix3d cov2eigen(const std::array<double, 9> &msg_cov) {
 
 std::vector<std::string> StateMonitor::extractComponents(const std::string &input) {
   std::vector<std::string> result;
-  std::stringstream ss(input);
-  std::string item;
+  std::stringstream        ss(input);
+  std::string              item;
 
   // stream extraction operator automatically skips delimiters
   while (ss >> item) {
@@ -688,26 +694,26 @@ tracker_state_t StateMonitor::parse_tracker_state(mrs_msgs::msg::ControlManagerD
 
   switch (control_manager_diagnostics->tracker_status.state) {
 
-  case mrs_msgs::msg::TrackerStatus::STATE_INVALID:
-    return tracker_state_t::INVALID;
-  case mrs_msgs::msg::TrackerStatus::STATE_IDLE:
-    return tracker_state_t::IDLE;
-  case mrs_msgs::msg::TrackerStatus::STATE_TAKEOFF:
-    return tracker_state_t::TAKEOFF;
-  case mrs_msgs::msg::TrackerStatus::STATE_HOVER:
-    return tracker_state_t::HOVER;
-  case mrs_msgs::msg::TrackerStatus::STATE_REFERENCE:
-    return tracker_state_t::REFERENCE;
-  case mrs_msgs::msg::TrackerStatus::STATE_TRAJECTORY:
-    return tracker_state_t::TRAJECTORY;
-  case mrs_msgs::msg::TrackerStatus::STATE_LAND:
-    return tracker_state_t::LAND;
-  default:
-    return tracker_state_t::UNKNOWN;
+    case mrs_msgs::msg::TrackerStatus::STATE_INVALID:
+      return tracker_state_t::INVALID;
+    case mrs_msgs::msg::TrackerStatus::STATE_IDLE:
+      return tracker_state_t::IDLE;
+    case mrs_msgs::msg::TrackerStatus::STATE_TAKEOFF:
+      return tracker_state_t::TAKEOFF;
+    case mrs_msgs::msg::TrackerStatus::STATE_HOVER:
+      return tracker_state_t::HOVER;
+    case mrs_msgs::msg::TrackerStatus::STATE_REFERENCE:
+      return tracker_state_t::REFERENCE;
+    case mrs_msgs::msg::TrackerStatus::STATE_TRAJECTORY:
+      return tracker_state_t::TRAJECTORY;
+    case mrs_msgs::msg::TrackerStatus::STATE_LAND:
+      return tracker_state_t::LAND;
+    default:
+      return tracker_state_t::UNKNOWN;
   }
 }
 
-state_t StateMonitor::parse_uav_state(mrs_msgs::msg::HwApiStatus::ConstSharedPtr hw_api_status,
+state_t StateMonitor::parse_uav_state(mrs_msgs::msg::HwApiStatus::ConstSharedPtr               hw_api_status,
                                       mrs_msgs::msg::ControlManagerDiagnostics::ConstSharedPtr control_manager_diagnostics) {
   if (hw_api_status == nullptr || control_manager_diagnostics == nullptr)
     return state_t::UNKNOWN;
@@ -741,18 +747,18 @@ state_t StateMonitor::parse_uav_state(mrs_msgs::msg::HwApiStatus::ConstSharedPtr
 
   // unless the RC mode is active, just parse the tracker state
   switch (tracker_state) {
-  case tracker_state_t::TAKEOFF:
-    return state_t::TAKEOFF;
-  case tracker_state_t::HOVER:
-    return state_t::HOVER;
-  case tracker_state_t::REFERENCE:
-    return state_t::GOTO;
-  case tracker_state_t::TRAJECTORY:
-    return state_t::TRAJECTORY;
-  case tracker_state_t::LAND:
-    return state_t::LAND;
-  default:
-    return state_t::UNKNOWN;
+    case tracker_state_t::TAKEOFF:
+      return state_t::TAKEOFF;
+    case tracker_state_t::HOVER:
+      return state_t::HOVER;
+    case tracker_state_t::REFERENCE:
+      return state_t::GOTO;
+    case tracker_state_t::TRAJECTORY:
+      return state_t::TRAJECTORY;
+    case tracker_state_t::LAND:
+      return state_t::LAND;
+    default:
+      return state_t::UNKNOWN;
   }
 }
 
@@ -792,20 +798,22 @@ mrs_msgs::msg::GeneralRobotInfo StateMonitor::parse_general_robot_info(sensor_ms
   } else if (!autostart_ready) {
     // if autostart reports that it is not ready, try to find the root cause
     std::scoped_lock lck(errorgraph_mtx_);
-    const auto dependency_roots = errorgraph_.find_dependency_roots(autostart_node_id_);
+    const auto       dependency_roots = errorgraph_.find_dependency_roots(autostart_node_id_);
     if (dependency_roots.empty()) {
       msg.problems_preventing_start.emplace_back("Automatic start reports UAV not ready");
     } else {
       for (const auto &root : dependency_roots) {
-        std::visit([&msg](const auto &info) {
-          using T = std::decay_t<decltype(info)>;
-          if constexpr (std::is_same_v<T, mrs_lib::errorgraph::Errorgraph::node_info_t>) {
-            for (const auto &error : info.errors)
-              msg.problems_preventing_start.push_back(error.type);
-          } else {
-            msg.problems_preventing_start.push_back("waiting for topic: " + info.topic_name);
-          }
-        }, root);
+        std::visit(
+            [&msg](const auto &info) {
+              using T = std::decay_t<decltype(info)>;
+              if constexpr (std::is_same_v<T, mrs_lib::errorgraph::Errorgraph::node_info_t>) {
+                for (const auto &error : info.errors)
+                  msg.problems_preventing_start.push_back(error.type);
+              } else {
+                msg.problems_preventing_start.push_back("waiting for topic: " + info.topic_name);
+              }
+            },
+            root);
       }
     }
   }
@@ -815,27 +823,29 @@ mrs_msgs::msg::GeneralRobotInfo StateMonitor::parse_general_robot_info(sensor_ms
 
     const auto error_roots = errorgraph_.find_error_roots();
     for (const auto &root : error_roots) {
-      std::visit([&msg](const auto &info) {
-        using T = std::decay_t<decltype(info)>;
-        if (info.not_reporting) {
-          std::stringstream ss;
-          ss << info.source_node.node << "." << info.source_node.component << ": not responding";
-          msg.errors.push_back(ss.str());
-        }
-        if constexpr (std::is_same_v<T, mrs_lib::errorgraph::Errorgraph::node_info_t>) {
-          for (const auto &error : info.errors)
-            msg.errors.push_back(error.type);
-        }
-      }, root);
+      std::visit(
+          [&msg](const auto &info) {
+            using T = std::decay_t<decltype(info)>;
+            if (info.not_reporting) {
+              std::stringstream ss;
+              ss << info.source_node.node << "." << info.source_node.component << ": not responding";
+              msg.errors.push_back(ss.str());
+            }
+            if constexpr (std::is_same_v<T, mrs_lib::errorgraph::Errorgraph::node_info_t>) {
+              for (const auto &error : info.errors)
+                msg.errors.push_back(error.type);
+            }
+          },
+          root);
     }
   }
   return msg;
 }
 
 mrs_msgs::msg::StateEstimationInfo StateMonitor::parse_state_estimation_info(mrs_msgs::msg::EstimationDiagnostics::ConstSharedPtr estimation_diagnostics,
-                                                                             mrs_msgs::msg::Float64Stamped::ConstSharedPtr local_heading,
-                                                                             sensor_msgs::msg::NavSatFix::ConstSharedPtr global_position,
-                                                                             mrs_msgs::msg::Float64Stamped::ConstSharedPtr global_heading) {
+                                                                             mrs_msgs::msg::Float64Stamped::ConstSharedPtr        local_heading,
+                                                                             sensor_msgs::msg::NavSatFix::ConstSharedPtr          global_position,
+                                                                             mrs_msgs::msg::Float64Stamped::ConstSharedPtr        global_heading) {
   auto init_msg         = init_state_estimation_info();
   init_msg.header.stamp = clock_->now();
 
@@ -878,7 +888,7 @@ mrs_msgs::msg::StateEstimationInfo StateMonitor::parse_state_estimation_info(mrs
 }
 
 mrs_msgs::msg::ControlInfo StateMonitor::parse_control_info(mrs_msgs::msg::ControlManagerDiagnostics::ConstSharedPtr control_manager_diagnostics,
-                                                            std_msgs::msg::Float64::ConstSharedPtr thrust) {
+                                                            std_msgs::msg::Float64::ConstSharedPtr                   thrust) {
 
   mrs_msgs::msg::ControlInfo msg = init_control_info();
 
@@ -942,8 +952,8 @@ mrs_msgs::msg::UavInfo StateMonitor::parse_uav_info(mrs_msgs::msg::HwApiStatus::
   return msg;
 }
 
-mrs_msgs::msg::SystemHealthInfo StateMonitor::parse_system_health_info(mrs_msgs::msg::UavStatus::ConstSharedPtr uav_status,
-                                                                       sensor_msgs::msg::NavSatFix::ConstSharedPtr gnss,
+mrs_msgs::msg::SystemHealthInfo StateMonitor::parse_system_health_info(mrs_msgs::msg::UavStatus::ConstSharedPtr        uav_status,
+                                                                       sensor_msgs::msg::NavSatFix::ConstSharedPtr     gnss,
                                                                        sensor_msgs::msg::MagneticField::ConstSharedPtr magnetic_field) {
   mrs_msgs::msg::SystemHealthInfo msg = init_system_health_info();
 

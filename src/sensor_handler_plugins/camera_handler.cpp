@@ -5,16 +5,17 @@ namespace mrs_robot_diagnostics
 
 namespace camera_handler
 {
-bool CameraHandler::initialize(rclcpp::Node::SharedPtr &node, const std::string &name, const std::string &name_space, const std::string &topic, rclcpp::CallbackGroup::SharedPtr cbkgrp_subs) {
+bool CameraHandler::initialize(rclcpp::Node::SharedPtr &node, const std::string &name, const std::string &name_space, const std::string &topic,
+                               rclcpp::CallbackGroup::SharedPtr cbkgrp_subs) {
   _name_  = name;
   _topic_ = topic;
 
 
   // Initialize tf2 components
-  tf_buffer_ = std::make_unique<tf2_ros::Buffer>(node->get_clock());
+  tf_buffer_   = std::make_unique<tf2_ros::Buffer>(node->get_clock());
   tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_, node);
 
- // Declare parameters before accessing them
+  // Declare parameters before accessing them
   if (!node->has_parameter("image_topic")) {
     node->declare_parameter("image_topic", "");
   }
@@ -35,17 +36,17 @@ bool CameraHandler::initialize(rclcpp::Node::SharedPtr &node, const std::string 
   }
 
   mrs_lib::SubscriberHandlerOptions shopts;
-  shopts.node                 = node;
-  shopts.node_name          = "StateMonitor";
-  shopts.no_message_timeout = mrs_lib::no_timeout;
-  shopts.threadsafe         = true;
-  shopts.autostart          = true;
+  shopts.node                                = node;
+  shopts.node_name                           = "StateMonitor";
+  shopts.no_message_timeout                  = mrs_lib::no_timeout;
+  shopts.threadsafe                          = true;
+  shopts.autostart                           = true;
   shopts.subscription_options.callback_group = cbkgrp_subs;
 
 
   std::string image_topic_name;
   node->get_parameter("image_topic", image_topic_name);
-  sensor_topic_ = image_topic_name; // Set the main topic for status updates 
+  sensor_topic_ = image_topic_name; // Set the main topic for status updates
   RCLCPP_INFO(node->get_logger(), " Subscribing to image topic: %s", image_topic_name.c_str());
 
   std::string camera_info_topic_name;
@@ -62,12 +63,12 @@ bool CameraHandler::initialize(rclcpp::Node::SharedPtr &node, const std::string 
   }
 
   if (!node->get_parameter("optical_frame", _optical_frame_)) {
-    RCLCPP_WARN(node->get_logger(), "Parameter 'optical_frame' not found, failed initialization"); 
+    RCLCPP_WARN(node->get_logger(), "Parameter 'optical_frame' not found, failed initialization");
     return false;
   }
 
   if (!node->get_parameter("fcu_frame", _fcu_frame_)) {
-    RCLCPP_WARN(node->get_logger(), "Parameter 'fcu_frame' not found, failed initialization"); 
+    RCLCPP_WARN(node->get_logger(), "Parameter 'fcu_frame' not found, failed initialization");
     return false;
   }
 
@@ -87,8 +88,8 @@ bool CameraHandler::initialize(rclcpp::Node::SharedPtr &node, const std::string 
 
 mrs_msgs::msg::SensorStatus CameraHandler::updateStatus() {
   mrs_msgs::msg::SensorStatus ss_msg;
-  ss_msg.name = _name_;
-  ss_msg.type = mrs_msgs::msg::SensorStatus::TYPE_CAMERA;
+  ss_msg.name  = _name_;
+  ss_msg.type  = mrs_msgs::msg::SensorStatus::TYPE_CAMERA;
   ss_msg.topic = sensor_topic_;
 
   if (!is_initialized_) {
@@ -111,7 +112,7 @@ mrs_msgs::msg::SensorStatus CameraHandler::updateStatus() {
       ss_msg.status = "NO_IMAGE_DATA";
     }
 
-    auto msg            = sh_camera_info_.getMsg();
+    auto         msg    = sh_camera_info_.getMsg();
     const double height = msg->height;
     const double width  = msg->width;
     const double fx     = msg->k[0];
@@ -134,9 +135,9 @@ mrs_msgs::msg::SensorStatus CameraHandler::updateStatus() {
   }
 
   geometry_msgs::msg::TransformStamped transform;
-  json camera_tf_json;
+  json                                 camera_tf_json;
   try {
-    transform = tf_buffer_->lookupTransform(_fcu_frame_, _camera_frame_, tf2::TimePointZero); 
+    transform = tf_buffer_->lookupTransform(_fcu_frame_, _camera_frame_, tf2::TimePointZero);
     double x  = transform.transform.translation.x;
     double y  = transform.transform.translation.y;
     double z  = transform.transform.translation.z;
@@ -147,7 +148,7 @@ mrs_msgs::msg::SensorStatus CameraHandler::updateStatus() {
     double qw = transform.transform.rotation.w;
 
     tf2::Quaternion q(qx, qy, qz, qw);
-    double roll, pitch, yaw;
+    double          roll, pitch, yaw;
     tf2::Matrix3x3(q).getRPY(roll, pitch, yaw);
 
     camera_tf_json = {
@@ -173,7 +174,7 @@ mrs_msgs::msg::SensorStatus CameraHandler::updateStatus() {
     double qw = transform.transform.rotation.w;
 
     tf2::Quaternion q(qx, qy, qz, qw);
-    double roll, pitch, yaw;
+    double          roll, pitch, yaw;
     tf2::Matrix3x3(q).getRPY(roll, pitch, yaw);
 
     optical_tf_json = {

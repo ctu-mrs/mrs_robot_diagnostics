@@ -13,7 +13,8 @@ using json = nlohmann::json;
 
 class SensorHandler {
 public:
-  virtual bool initialize(rclcpp::Node::SharedPtr &node, const std::string &name, const std::string &name_space, const std::string &topic, rclcpp::CallbackGroup::SharedPtr cbkgrp_subs = nullptr) = 0;
+  virtual bool initialize(rclcpp::Node::SharedPtr &node, const std::string &name, const std::string &name_space, const std::string &topic,
+                          rclcpp::CallbackGroup::SharedPtr cbkgrp_subs = nullptr) = 0;
 
   virtual mrs_msgs::msg::SensorStatus updateStatus() = 0;
 
@@ -21,8 +22,8 @@ public:
 
 protected:
   rclcpp::Time last_msg_time_;
-  std::string sensor_topic_;
-  double current_rate_;
+  std::string  sensor_topic_;
+  double       current_rate_;
 
   double calculateRate(const rclcpp::Time &current_msg_time) {
     if (last_msg_time_.seconds() == 0.0) {
@@ -39,13 +40,13 @@ protected:
   // Helper function to create a subscriber with rate calculation of the main topic
   template <typename MessageType>
   mrs_lib::SubscriberHandler<MessageType> createSubscriber(rclcpp::Node::SharedPtr &node, const std::string &topic_name,
-                                                           const rclcpp::Duration &timeout              = mrs_lib::no_timeout,
+                                                           const rclcpp::Duration          &timeout     = mrs_lib::no_timeout,
                                                            rclcpp::CallbackGroup::SharedPtr cbkgrp_subs = nullptr) {
 
     mrs_lib::SubscriberHandlerOptions shopts;
     shopts.node                                = node;
     shopts.node_name                           = "StateMonitor";
-    shopts.no_message_timeout                  = timeout; 
+    shopts.no_message_timeout                  = timeout;
     shopts.threadsafe                          = true;
     shopts.autostart                           = true;
     shopts.subscription_options.callback_group = cbkgrp_subs;

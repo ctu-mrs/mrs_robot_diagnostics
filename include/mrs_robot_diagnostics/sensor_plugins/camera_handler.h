@@ -17,29 +17,30 @@ namespace camera_handler
 
 class CameraHandler : public mrs_robot_diagnostics::SensorHandler {
 public:
-  CameraHandler() = default;  
-  
-  
-  bool initialize(rclcpp::Node::SharedPtr &node, const std::string &name, const std::string &name_space, const std::string &topic, rclcpp::CallbackGroup::SharedPtr cbkgrp_subs = nullptr) override;
+  CameraHandler() = default;
+
+
+  bool                        initialize(rclcpp::Node::SharedPtr &node, const std::string &name, const std::string &name_space, const std::string &topic,
+                                         rclcpp::CallbackGroup::SharedPtr cbkgrp_subs = nullptr) override;
   mrs_msgs::msg::SensorStatus updateStatus() override;
 
 
 private:
   std::string _name_;
   std::string _topic_;
-  bool is_initialized_ = false;
-  bool is_active_      = false;
+  bool        is_initialized_ = false;
+  bool        is_active_      = false;
   std::string _camera_frame_;
   std::string _optical_frame_;
   std::string _fcu_frame_;
 
 
-  mrs_lib::SubscriberHandler<sensor_msgs::msg::CameraInfo> sh_camera_info_;
-  mrs_lib::SubscriberHandler<sensor_msgs::msg::Image> sh_image_;
+  mrs_lib::SubscriberHandler<sensor_msgs::msg::CameraInfo>     sh_camera_info_;
+  mrs_lib::SubscriberHandler<sensor_msgs::msg::Image>          sh_image_;
   mrs_lib::SubscriberHandler<std_msgs::msg::Float32MultiArray> sh_camera_orientation_;
-  mrs_lib::PublisherHandler<mrs_msgs::msg::SensorInfo> ph_camera_details_;
+  mrs_lib::PublisherHandler<mrs_msgs::msg::SensorInfo>         ph_camera_details_;
 
-  std::unique_ptr<tf2_ros::Buffer> tf_buffer_;
+  std::unique_ptr<tf2_ros::Buffer>            tf_buffer_;
   std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
 };
 

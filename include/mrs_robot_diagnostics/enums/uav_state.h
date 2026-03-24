@@ -1,25 +1,15 @@
 #pragma once
 #include <cstdint>
-#include <mrs_msgs/msg/state.hpp> 
+#include <mrs_msgs/msg/state.hpp>
 
 // macro variables for the enum definition
 #undef X_ENUM_NAME
 #undef X_ENUM_BASE_TYPE
 #undef X_ENUM_SEQ
 
-#define X_ENUM_NAME       state_t
-#define X_ENUM_BASE_TYPE  uint8_t
-#define X_ENUM_SEQ                      \
-                          (DISARMED)    \
-                          (ARMED)       \
-                          (OFFBOARD)    \
-                          (MANUAL)      \
-                          (TAKEOFF)     \
-                          (LAND)        \
-                          (RC_MODE)     \
-                          (HOVER)       \
-                          (GOTO)        \
-                          (TRAJECTORY)
+#define X_ENUM_NAME state_t
+#define X_ENUM_BASE_TYPE uint8_t
+#define X_ENUM_SEQ (DISARMED)(ARMED)(OFFBOARD)(MANUAL)(TAKEOFF)(LAND)(RC_MODE)(HOVER)(GOTO)(TRAJECTORY)
 
 // optional macro variables for enum to ROS message conversions
 #undef X_ENUM_MSG_TYPE
@@ -35,39 +25,35 @@ namespace mrs_robot_diagnostics
 
 #include "mrs_robot_diagnostics/enums/enum_macros.h"
 
-  // generate the enum and the to_string() conversion
+// generate the enum and the to_string() conversion
 DEFINE_ENUM_WITH_CONVERSIONS(X_ENUM_NAME, X_ENUM_BASE_TYPE, X_ENUM_SEQ)
 
-  // generate the to_ros() conversion
+// generate the to_ros() conversion
 DEFINE_ENUM_MSG_CONVERSIONS(X_ENUM_NAME, X_ENUM_MSG_TYPE, X_ENUM_MSG_MEMBER, X_ENUM_MSG_PREFIX, X_ENUM_SEQ)
 
-  // some more helper functions related to this enum
-  inline bool is_flying(state_t uav_state)
-  {
-    switch (uav_state)
-    {
-      case state_t::DISARMED:
-      case state_t::ARMED:
-      case state_t::OFFBOARD:
-        return false;
-      default:
-        return true;
-    }
+// some more helper functions related to this enum
+inline bool is_flying(state_t uav_state) {
+  switch (uav_state) {
+    case state_t::DISARMED:
+    case state_t::ARMED:
+    case state_t::OFFBOARD:
+      return false;
+    default:
+      return true;
   }
-
-  // some more helper functions related to this enum
-  inline bool is_flying_autonomously(state_t uav_state)
-  {
-    switch (uav_state)
-    {
-      case state_t::DISARMED:
-      case state_t::ARMED:
-      case state_t::OFFBOARD:
-      case state_t::MANUAL:
-        return false;
-      default:
-        return true;
-    }
-  }
-
 }
+
+// some more helper functions related to this enum
+inline bool is_flying_autonomously(state_t uav_state) {
+  switch (uav_state) {
+    case state_t::DISARMED:
+    case state_t::ARMED:
+    case state_t::OFFBOARD:
+    case state_t::MANUAL:
+      return false;
+    default:
+      return true;
+  }
+}
+
+} // namespace mrs_robot_diagnostics
