@@ -45,6 +45,7 @@ bool CameraHandler::initialize(rclcpp::Node::SharedPtr &node, const std::string 
 
   std::string image_topic_name;
   node->get_parameter("image_topic", image_topic_name);
+  sensor_topic_ = image_topic_name; // Set the main topic for status updates 
   RCLCPP_INFO(node->get_logger(), " Subscribing to image topic: %s", image_topic_name.c_str());
 
   std::string camera_info_topic_name;
@@ -88,6 +89,7 @@ mrs_msgs::msg::SensorStatus CameraHandler::updateStatus() {
   mrs_msgs::msg::SensorStatus ss_msg;
   ss_msg.name = _name_;
   ss_msg.type = mrs_msgs::msg::SensorStatus::TYPE_CAMERA;
+  ss_msg.topic = sensor_topic_;
 
   if (!is_initialized_) {
     ss_msg.ready  = false;
@@ -198,6 +200,7 @@ mrs_msgs::msg::SensorStatus CameraHandler::updateStatus() {
   }
 
   json json_msg = {
+      {"camera_topic", sensor_topic_},
       {"camera_frame_tf", camera_tf_json},
       {"optical_frame_tf", optical_tf_json},
       {"camera_info", camera_info_json},

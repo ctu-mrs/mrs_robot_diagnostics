@@ -21,6 +21,7 @@ public:
 
 protected:
   rclcpp::Time last_msg_time_;
+  std::string sensor_topic_;
   double current_rate_;
 
   double calculateRate(const rclcpp::Time &current_msg_time) {

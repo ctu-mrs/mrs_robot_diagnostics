@@ -46,6 +46,11 @@
 
 #include <mrs_robot_diagnostics/sensor_handler.h>
 
+#include <netdb.h>
+#include <sys/socket.h>
+#include <arpa/inet.h>
+#include <cstring>
+
 #if USE_ROS_TIMER == 1
 typedef mrs_lib::ROSTimer TimerType;
 #else
@@ -116,6 +121,7 @@ private:
   const mrs_lib::errorgraph::node_id_t autostart_node_id_ = {"AutomaticStart", "main"};
 
   std::string _robot_name_;
+  std::string robot_ip_address_;
   robot_type_t robot_type_;
 
   std::vector<mrs_msgs::msg::SensorStatus> available_sensors_;
@@ -270,6 +276,43 @@ void StateMonitor::initialize() {
   param_loader.loadParam("robot_type", robot_type);
 
   robot_type_ = parse_robot_type(robot_type);
+
+  std::vector<char> hostname(1024);
+
+  if (gethostname(hostname.data(), hostname.size()) == 0) {
+    RCLCPP_INFO_STREAM(node_->get_logger(), "Hostname: " << hostname.data());
+  } else {
+    RCLCPP_WARN_STREAM(node_->get_logger(), "Failed to get hostname");
+  }
+
+  if (hostname.data() != _robot_name_) {
+    RCLCPP_WARN_STREAM(node_->get_logger(), "Hostname '"
+                                                << hostname.data() << "' does not match the robot name '" << _robot_name_
+                                                << "'. This might lead to issues in IP resolution, if you are using the hostname to connect to the robot, "
+                                                   "please check your network configuration and make sure the hostname is correct");
+  }
+
+  addrinfo hints{};
+  hints.ai_family   = AF_INET;
+  hints.ai_socktype = SOCK_STREAM;
+
+  addrinfo *res = nullptr;
+
+  if (getaddrinfo(hostname.data(), nullptr, &hints, &res) != 0) {
+    RCLCPP_WARN_STREAM(node_->get_logger(), "Failed to resolve "
+                                                << hostname.data()
+                                                << ", skipping IP resolution for this robot, if you are using the hostname to connect to the robot, "
+                                                   "please check your network configuration and make sure the hostname is correct");
+  } else {
+    char ip[INET_ADDRSTRLEN];
+    void *addr = &((sockaddr_in *)res->ai_addr)->sin_addr;
+    inet_ntop(AF_INET, addr, ip, sizeof(ip));
+
+    robot_ip_address_ = std::string(ip);
+    RCLCPP_INFO_STREAM(node_->get_logger(), "Resolved IP address: " << robot_ip_address_);
+
+    freeaddrinfo(res);
+  }
 
   auto main_timer_rate        = param_loader.loadParam2<double>("robot_diagnostics/main_timer_rate");
   auto error_publisher_rate   = param_loader.loadParam2<double>("robot_diagnostics/error_publisher_rate");
@@ -718,6 +761,7 @@ mrs_msgs::msg::GeneralRobotInfo StateMonitor::parse_general_robot_info(sensor_ms
   msg.stamp                           = clock_->now();
   msg.robot_name                      = _robot_name_;
   msg.robot_type                      = static_cast<int>(robot_type_);
+  msg.robot_ip_address                = robot_ip_address_;
 
   const bool is_battery_state_valid = battery_state != nullptr;
 
