@@ -530,7 +530,7 @@ void StateMonitor::timerErrorPublishing() {
   const auto root_errors = errorgraph_.find_error_roots();
 
   for (const auto &error : root_errors) {
-    root_errors_msg.elements.push_back(error->to_msg());
+    root_errors_msg.elements.push_back(std::visit([](const auto &info) { return info.to_msg(); }, error));
   }
 
   ph_root_errors_.publish(root_errors_msg);
@@ -752,9 +752,17 @@ mrs_msgs::msg::GeneralRobotInfo StateMonitor::parse_general_robot_info(sensor_ms
     if (dependency_roots.empty()) {
       msg.problems_preventing_start.emplace_back("Automatic start reports UAV not ready");
     } else {
-      for (const auto &root : dependency_roots)
-        for (const auto &error : root->errors)
-          msg.problems_preventing_start.push_back(error.type);
+      for (const auto &root : dependency_roots) {
+        std::visit([&msg](const auto &info) {
+          using T = std::decay_t<decltype(info)>;
+          if constexpr (std::is_same_v<T, mrs_lib::errorgraph::Errorgraph::node_info_t>) {
+            for (const auto &error : info.errors)
+              msg.problems_preventing_start.push_back(error.type);
+          } else {
+            msg.problems_preventing_start.push_back("waiting for topic: " + info.topic_name);
+          }
+        }, root);
+      }
     }
   }
 
@@ -763,13 +771,18 @@ mrs_msgs::msg::GeneralRobotInfo StateMonitor::parse_general_robot_info(sensor_ms
 
     const auto error_roots = errorgraph_.find_error_roots();
     for (const auto &root : error_roots) {
-      if (root->is_not_reporting()) {
-        std::stringstream ss;
-        ss << root->source_node.node << "." << root->source_node.component << ": not responding";
-        msg.errors.push_back(ss.str());
-      }
-      for (const auto &error : root->errors)
-        msg.errors.push_back(error.type);
+      std::visit([&msg](const auto &info) {
+        using T = std::decay_t<decltype(info)>;
+        if (info.not_reporting) {
+          std::stringstream ss;
+          ss << info.source_node.node << "." << info.source_node.component << ": not responding";
+          msg.errors.push_back(ss.str());
+        }
+        if constexpr (std::is_same_v<T, mrs_lib::errorgraph::Errorgraph::node_info_t>) {
+          for (const auto &error : info.errors)
+            msg.errors.push_back(error.type);
+        }
+      }, root);
     }
   }
   return msg;
