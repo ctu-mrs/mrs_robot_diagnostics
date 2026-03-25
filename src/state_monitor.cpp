@@ -779,12 +779,18 @@ mrs_msgs::msg::GeneralRobotInfo StateMonitor::parse_general_robot_info(sensor_ms
 
   const bool autostart_running = sh_automatic_start_can_takeoff_.getNumPublishers();
   const bool autostart_ready   = sh_automatic_start_can_takeoff_.hasMsg() && sh_automatic_start_can_takeoff_.getMsg()->data;
-  const bool state_offboard    = uav_state_.value() == state_t::OFFBOARD;
-  msg.ready_to_start           = state_offboard && autostart_running && autostart_ready;
+
+  const auto uav_state = uav_state_.value();
+
+  const bool state_offboard = uav_state == state_t::OFFBOARD;
+  msg.ready_to_start        = state_offboard && autostart_running && autostart_ready;
   msg.problems_preventing_start.clear();
 
-  if (!is_flying_autonomously(uav_state_.value())) {
-    switch (uav_state_.value()) {
+
+  // If not flying, check what is preventing the start and add it to the message.
+  // If flying, we can assume everything was fine at takeoff, so no need to check for problems preventing start
+  if (!is_flying_autonomously(uav_state)) {
+    switch (uav_state) {
       case state_t::UNKNOWN:
         msg.problems_preventing_start.emplace_back("UAV state is UNKNOWN");
         break;
@@ -812,13 +818,16 @@ mrs_msgs::msg::GeneralRobotInfo StateMonitor::parse_general_robot_info(sensor_ms
         msg.problems_preventing_start.emplace_back("Automatic start reports UAV not ready");
       } else {
         for (const auto &root : dependency_roots) {
+          // For each root, check if it's an node error or a missing topic and add it to the problems preventing start
           std::visit(
               [&msg](const auto &info) {
                 using T = std::decay_t<decltype(info)>;
                 if constexpr (std::is_same_v<T, mrs_lib::errorgraph::Errorgraph::node_info_t>) {
+                  // If it's a node error, add all errors of the node to the problems preventing start
                   for (const auto &error : info.errors)
                     msg.problems_preventing_start.push_back(error.type);
                 } else {
+                  // If it's a missing topic, add the topic name to the problems preventing start
                   msg.problems_preventing_start.push_back("waiting for topic: " + info.topic_name);
                 }
               },
