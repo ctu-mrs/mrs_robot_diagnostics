@@ -783,7 +783,7 @@ mrs_msgs::msg::GeneralRobotInfo StateMonitor::parse_general_robot_info(sensor_ms
   msg.ready_to_start           = state_offboard && autostart_running && autostart_ready;
   msg.problems_preventing_start.clear();
 
-  if (is_flying_autonomously(uav_state_.value())) {
+  if (!is_flying_autonomously(uav_state_.value())) {
     switch (uav_state_.value()) {
       case state_t::UNKNOWN:
         msg.problems_preventing_start.emplace_back("UAV state is UNKNOWN");
@@ -794,8 +794,11 @@ mrs_msgs::msg::GeneralRobotInfo StateMonitor::parse_general_robot_info(sensor_ms
       case state_t::DISARMED:
         msg.problems_preventing_start.emplace_back("UAV is DISARMED");
         break;
+      case state_t::OFFBOARD:
+        // In OFFBOARD but not flying — autostart checks below will explain why
+        break;
       default:
-        msg.problems_preventing_start.emplace_back("UAV not in offboard");
+        msg.problems_preventing_start.emplace_back("UAV is not in OFFBOARD mode");
         break;
     }
 
