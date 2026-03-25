@@ -780,40 +780,47 @@ mrs_msgs::msg::GeneralRobotInfo StateMonitor::parse_general_robot_info(sensor_ms
   const bool autostart_running = sh_automatic_start_can_takeoff_.getNumPublishers();
   const bool autostart_ready   = sh_automatic_start_can_takeoff_.hasMsg() && sh_automatic_start_can_takeoff_.getMsg()->data;
   const bool state_offboard    = uav_state_.value() == state_t::OFFBOARD;
-  const bool state_unknown     = uav_state_.value() == state_t::UNKNOWN;
-  const bool state_manual      = uav_state_.value() == state_t::MANUAL;
   msg.ready_to_start           = state_offboard && autostart_running && autostart_ready;
   msg.problems_preventing_start.clear();
 
   if (is_flying_autonomously(uav_state_.value())) {
-    // drone is in the autonomous mode, everything good
-  } else if (state_unknown) {
-    msg.problems_preventing_start.emplace_back("UAV state is UNKNOWN");
-  } else if (state_manual) {
-    msg.problems_preventing_start.emplace_back("UAV state is in MANUAL mode");
-  } else if (!state_offboard) {
-    msg.problems_preventing_start.emplace_back("UAV is not ARMED and in OFFBOARD mode");
-  } else if (!autostart_running) {
-    msg.problems_preventing_start.emplace_back("Automatic start node is not running");
-  } else if (!autostart_ready) {
-    // if autostart reports that it is not ready, try to find the root cause
-    std::scoped_lock lck(errorgraph_mtx_);
-    const auto       dependency_roots = errorgraph_.find_dependency_roots(autostart_node_id_);
-    if (dependency_roots.empty()) {
-      msg.problems_preventing_start.emplace_back("Automatic start reports UAV not ready");
-    } else {
-      for (const auto &root : dependency_roots) {
-        std::visit(
-            [&msg](const auto &info) {
-              using T = std::decay_t<decltype(info)>;
-              if constexpr (std::is_same_v<T, mrs_lib::errorgraph::Errorgraph::node_info_t>) {
-                for (const auto &error : info.errors)
-                  msg.problems_preventing_start.push_back(error.type);
-              } else {
-                msg.problems_preventing_start.push_back("waiting for topic: " + info.topic_name);
-              }
-            },
-            root);
+    switch (uav_state_.value()) {
+      case state_t::UNKNOWN:
+        msg.problems_preventing_start.emplace_back("UAV state is UNKNOWN");
+        break;
+      case state_t::MANUAL:
+        msg.problems_preventing_start.emplace_back("UAV state is in MANUAL mode");
+        break;
+      case state_t::DISARMED:
+        msg.problems_preventing_start.emplace_back("UAV is DISARMED");
+        break;
+      default:
+        msg.problems_preventing_start.emplace_back("UAV not in offboard");
+        break;
+    }
+
+    if (state_offboard && !autostart_running)
+      msg.problems_preventing_start.emplace_back("Automatic start node is not running");
+    else if (state_offboard && !autostart_ready) {
+      // Find the root cause of autostart not being ready
+      std::scoped_lock lck(errorgraph_mtx_);
+      const auto       dependency_roots = errorgraph_.find_dependency_roots(autostart_node_id_);
+      if (dependency_roots.empty()) {
+        msg.problems_preventing_start.emplace_back("Automatic start reports UAV not ready");
+      } else {
+        for (const auto &root : dependency_roots) {
+          std::visit(
+              [&msg](const auto &info) {
+                using T = std::decay_t<decltype(info)>;
+                if constexpr (std::is_same_v<T, mrs_lib::errorgraph::Errorgraph::node_info_t>) {
+                  for (const auto &error : info.errors)
+                    msg.problems_preventing_start.push_back(error.type);
+                } else {
+                  msg.problems_preventing_start.push_back("waiting for topic: " + info.topic_name);
+                }
+              },
+              root);
+        }
       }
     }
   }
