@@ -181,7 +181,7 @@ def generate_launch_description():
             ("~/control_manager_thrust_in", "control_manager/thrust"),
             ("~/mpc_tracker_diagnostics_in", "control_manager/mpc_tracker/estimation_diagnostics_info"),
             ("~/hw_api_status_in", "hw_api/status"),
-            ("~/uav_status_in", "mrs_uav_status/uav_status"),
+            ("~/uav_status_in", "uav_status_acquisition/uav_status"),
             ("~/mass_nominal_in", "control_manager/mass_nominal"),
             ("~/mass_estimate_in", "control_manager/mass_estimate"),
             ("~/hw_api_magnetic_field_in", "hw_api/magnetic_field"),
