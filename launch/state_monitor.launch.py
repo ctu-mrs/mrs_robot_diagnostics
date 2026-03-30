@@ -176,6 +176,7 @@ def generate_launch_description():
             ("~/estimation_diagnostics_in", "estimation_manager/diagnostics"),
             ("~/hw_api_gnss_in", "hw_api/gnss"),
             ("~/hw_api_mag_heading_in", "hw_api/mag_heading"),
+            ("~/hw_api_rc_rssi_in", "hw_api/rc_rssi"),
             ("~/control_manager_heading_in", "control_manager/heading"),
             ("~/control_manager_diagnostics_in", "control_manager/diagnostics"),
             ("~/control_manager_thrust_in", "control_manager/thrust"),
