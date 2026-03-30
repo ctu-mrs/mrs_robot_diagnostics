@@ -15,6 +15,7 @@
 #include <mrs_msgs/msg/uav_state.hpp>
 #include <mrs_msgs/msg/system_health_info.hpp>
 #include <mrs_msgs/msg/hw_api_status.hpp>
+#include <std_msgs/msg/u_int8.hpp>
 #include <mrs_msgs/msg/uav_status.hpp>
 #include <mrs_msgs/msg/mpc_tracker_diagnostics.hpp>
 #include <mrs_msgs/msg/sensor_status.hpp>
@@ -49,7 +50,9 @@
 #include <netdb.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
+#include <cstdio>
 #include <cstring>
+#include <fstream>
 
 #if USE_ROS_TIMER == 1
 typedef mrs_lib::ROSTimer TimerType;
@@ -146,6 +149,7 @@ private:
   mrs_lib::SubscriberHandler<sensor_msgs::msg::NavSatFix>          sh_hw_api_gnss_;
   mrs_lib::SubscriberHandler<mrs_msgs::msg::Float64Stamped>        sh_control_manager_heading_;
   mrs_lib::SubscriberHandler<mrs_msgs::msg::Float64Stamped>        sh_hw_api_mag_heading_;
+  mrs_lib::SubscriberHandler<std_msgs::msg::UInt8>                  sh_hw_api_rc_rssi_;
 
   // | ----------------------- ControlInfo ---------------------- |
   mrs_lib::PublisherHandler<mrs_msgs::msg::ControlInfo>                ph_control_info_;
@@ -170,6 +174,20 @@ private:
   mrs_lib::PublisherHandler<mrs_msgs::msg::SystemHealthInfo>  ph_system_health_info_;
   mrs_msgs::msg::SystemHealthInfo                             last_system_health_info_;
   mrs_lib::SubscriberHandler<sensor_msgs::msg::MagneticField> sh_hw_api_magnetic_field_;
+
+  // | ---------------------- WiFi info ----------------------- |
+  struct WifiInfo
+  {
+    std::string interface;
+    float       signal_dbm   = std::numeric_limits<float>::quiet_NaN();
+    int32_t     link_quality = -1;
+  };
+
+  std::string  _wifi_interface_; // configurable, empty = auto-detect first interface
+  WifiInfo     cached_wifi_info_;
+  rclcpp::Time last_wifi_read_time_;
+  static constexpr double WIFI_READ_INTERVAL_S = 1.0;
+  WifiInfo     read_wifi_info();
 
   // | ------------------------ UAV state ----------------------- |
   mrs_lib::PublisherHandler<mrs_msgs::msg::State> ph_uav_state_;
@@ -232,7 +250,8 @@ private:
                                                  std_msgs::msg::Float64::ConstSharedPtr mass_nominal, std_msgs::msg::Float64::ConstSharedPtr mass_estimate);
   mrs_msgs::msg::SystemHealthInfo parse_system_health_info(mrs_msgs::msg::UavStatus::ConstSharedPtr        uav_status,
                                                            sensor_msgs::msg::NavSatFix::ConstSharedPtr     gnss,
-                                                           sensor_msgs::msg::MagneticField::ConstSharedPtr magnetic_field);
+                                                           sensor_msgs::msg::MagneticField::ConstSharedPtr magnetic_field,
+                                                           std_msgs::msg::UInt8::ConstSharedPtr  rc_rssi);
 
   mrs_msgs::msg::GeneralRobotInfo       init_general_robot_info();
   mrs_msgs::msg::StateEstimationInfo    init_state_estimation_info();
@@ -319,6 +338,8 @@ void StateMonitor::initialize() {
 
     freeaddrinfo(res);
   }
+
+  param_loader.loadParam("robot_diagnostics/wifi_interface", _wifi_interface_, std::string(""));
 
   auto       main_timer_rate      = param_loader.loadParam2<double>("robot_diagnostics/main_timer_rate");
   auto       error_publisher_rate = param_loader.loadParam2<double>("robot_diagnostics/error_publisher_rate");
@@ -434,6 +455,7 @@ void StateMonitor::initialize() {
   sh_hw_api_gnss_             = mrs_lib::SubscriberHandler<sensor_msgs::msg::NavSatFix>(shopts, "~/hw_api_gnss_in");
   sh_control_manager_heading_ = mrs_lib::SubscriberHandler<mrs_msgs::msg::Float64Stamped>(shopts, "~/control_manager_heading_in");
   sh_hw_api_mag_heading_      = mrs_lib::SubscriberHandler<mrs_msgs::msg::Float64Stamped>(shopts, "~/hw_api_mag_heading_in");
+  sh_hw_api_rc_rssi_          = mrs_lib::SubscriberHandler<std_msgs::msg::UInt8>(shopts, "~/hw_api_rc_rssi_in");
 
   // | ----------------------- ControlInfo ---------------------- |
   ph_control_info_                = mrs_lib::PublisherHandler<mrs_msgs::msg::ControlInfo>(node_, "~/control_info_out");
@@ -457,6 +479,7 @@ void StateMonitor::initialize() {
   // | -------------------- SystemHealthInfo -------------------- |
   ph_system_health_info_    = mrs_lib::PublisherHandler<mrs_msgs::msg::SystemHealthInfo>(node_, "~/system_health_info_out");
   last_system_health_info_  = init_system_health_info();
+  last_wifi_read_time_      = clock_->now();
   sh_hw_api_magnetic_field_ = mrs_lib::SubscriberHandler<sensor_msgs::msg::MagneticField>(shopts, "~/hw_api_magnetic_field_in", mrs_lib::no_timeout);
 
   // | ------------------------ UAV state ----------------------- |
@@ -519,6 +542,7 @@ void StateMonitor::timerMain() {
   const auto       estimation_diagnostics      = processIncomingMessage(sh_estimation_diagnostics_);
   const auto       control_manager_heading     = processIncomingMessage(sh_control_manager_heading_);
   const auto       hw_api_mag_heading          = processIncomingMessage(sh_hw_api_mag_heading_);
+  const auto       hw_api_rc_rssi              = processIncomingMessage(sh_hw_api_rc_rssi_);
   const auto       control_manager_thrust      = processIncomingMessage(sh_control_manager_thrust_);
   const auto       mpc_tracker_diagnostics     = processIncomingMessage(sh_mpc_tracker_diagnostics_);
   const auto       mass_nominal                = processIncomingMessage(sh_mass_nominal_);
@@ -545,8 +569,8 @@ void StateMonitor::timerMain() {
   if (hw_api_status.hasNewMessage || uav_status.hasNewMessage || mass_nominal.hasNewMessage | mass_estimate.hasNewMessage)
     last_uav_info_ = parse_uav_info(hw_api_status.message, uav_status.message, mass_nominal.message, mass_estimate.message);
 
-  if (uav_status.hasNewMessage || hw_api_gnss.hasNewMessage)
-    last_system_health_info_ = parse_system_health_info(uav_status.message, hw_api_gnss.message, hw_api_magnetic_field.message);
+  if (uav_status.hasNewMessage || hw_api_gnss.hasNewMessage || hw_api_magnetic_field.hasNewMessage || hw_api_rc_rssi.hasNewMessage)
+    last_system_health_info_ = parse_system_health_info(uav_status.message, hw_api_gnss.message, hw_api_magnetic_field.message, hw_api_rc_rssi.message);
 
   ph_general_robot_info_.publish(last_general_robot_info_);
   ph_state_estimation_info_.publish(last_state_estimation_info_);
@@ -973,7 +997,8 @@ mrs_msgs::msg::UavInfo StateMonitor::parse_uav_info(mrs_msgs::msg::HwApiStatus::
 
 mrs_msgs::msg::SystemHealthInfo StateMonitor::parse_system_health_info(mrs_msgs::msg::UavStatus::ConstSharedPtr        uav_status,
                                                                        sensor_msgs::msg::NavSatFix::ConstSharedPtr     gnss,
-                                                                       sensor_msgs::msg::MagneticField::ConstSharedPtr magnetic_field) {
+                                                                       sensor_msgs::msg::MagneticField::ConstSharedPtr magnetic_field,
+                                                                       std_msgs::msg::UInt8::ConstSharedPtr  rc_rssi) {
   mrs_msgs::msg::SystemHealthInfo msg = init_system_health_info();
 
   const bool is_uav_status_valid     = uav_status != nullptr;
@@ -1008,6 +1033,19 @@ mrs_msgs::msg::SystemHealthInfo StateMonitor::parse_system_health_info(mrs_msgs:
     msg.mag_strength          = field.norm();
     const Eigen::Matrix3d cov = cov2eigen(magnetic_field->magnetic_field_covariance);
     msg.mag_uncertainty       = std::cbrt(cov.determinant());
+  }
+
+  //Get Wifi info from the system
+  const auto wifi = read_wifi_info();
+  if (!wifi.interface.empty()) {
+    msg.wifi_interface    = wifi.interface;
+    msg.wifi_signal_dbm   = wifi.signal_dbm;
+    msg.wifi_link_quality = wifi.link_quality;
+  }
+
+  //Get RC signal info
+  if (rc_rssi != nullptr) {
+    msg.rc_rssi = rc_rssi->data;
   }
 
   msg.available_sensors = available_sensors_;
@@ -1118,7 +1156,66 @@ mrs_msgs::msg::SystemHealthInfo StateMonitor::init_system_health_info() {
   msg.mag_strength     = std::numeric_limits<float>::quiet_NaN();
   msg.mag_uncertainty  = std::numeric_limits<float>::quiet_NaN();
 
+  msg.wifi_interface    = "";
+  msg.wifi_signal_dbm   = std::numeric_limits<float>::quiet_NaN();
+  msg.wifi_link_quality = -1;
+  msg.rc_rssi           = -1;
+
   return msg;
+}
+
+StateMonitor::WifiInfo StateMonitor::read_wifi_info() {
+
+  // return cached value if less than WIFI_READ_INTERVAL_S has passed
+  const auto now = clock_->now(); 
+  if ((now - last_wifi_read_time_).seconds() < WIFI_READ_INTERVAL_S) {
+    return cached_wifi_info_;
+  }
+  last_wifi_read_time_ = now;
+
+  WifiInfo info;
+
+  std::ifstream file("/proc/net/wireless");
+  if (!file.is_open()) {
+    cached_wifi_info_ = info;
+    return info;
+  }
+
+  std::string line;
+
+  // skip 2 header lines
+  std::getline(file, line);
+  std::getline(file, line);
+
+  while (std::getline(file, line)) {
+    char  iface_buf[64] = {};
+    int   status = 0, link = 0;
+    float level = 0.0f, noise = 0.0f;
+
+    if (std::sscanf(line.c_str(), "%63s %d %d. %f. %f.", iface_buf, &status, &link, &level, &noise) < 4) {
+      continue;
+    }
+
+    // remove trailing colon from interface name (e.g. "wlp2s0:" -> "wlp2s0")
+    std::string iface(iface_buf);
+    if (!iface.empty() && iface.back() == ':') {
+      iface.pop_back();
+    }
+
+    // if a specific interface is configured, only match that one
+    if (!_wifi_interface_.empty() && iface != _wifi_interface_) {
+      continue;
+    }
+
+    info.interface    = iface;
+    info.signal_dbm   = level;
+    info.link_quality = link;
+    cached_wifi_info_ = info;
+    return info;
+  }
+
+  cached_wifi_info_ = info;
+  return info;
 }
 
 } // namespace state_monitor
