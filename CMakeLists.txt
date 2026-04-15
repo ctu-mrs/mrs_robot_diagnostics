@@ -37,12 +37,17 @@ set(DEPENDENCIES
   mrs_lib
   tf2_ros
   pluginlib
+  diagnostic_msgs
 )
 
 set(LIBRARIES
+  MrsRobotDiagnostics_MrsRobotDiagnostics
   MrsRobotDiagnostics_StateMonitor
-  MrsRobotDiagnostics_CameraHandler
   MrsRobotDiagnostics_GenericSensorHandler
+  # MrsRobotDiagnostics_CameraHandler
+  MrsRobotDiagnostics_GPSHandler
+  MrsRobotDiagnostics_MagnetometerHandler
+  MrsRobotDiagnostics_RCHandler
 )
 
 foreach(DEP IN LISTS DEPENDENCIES)
@@ -50,11 +55,13 @@ foreach(DEP IN LISTS DEPENDENCIES)
 endforeach()
 
 ## --------------------------------------------------------------
-## |                      Interface Library                     |
+## |                      Shared Library                     |
 ## --------------------------------------------------------------
 
-# Interface library for the plugin API
-add_library(MrsRobotDiagnostics_MrsRobotDiagnostics INTERFACE)
+# Shared library for the plugin API
+add_library(MrsRobotDiagnostics_MrsRobotDiagnostics SHARED
+  src/sensor_handler.cpp
+)
 add_library(mrs_robot_diagnostics::mrs_robot_diagnostics ALIAS MrsRobotDiagnostics_MrsRobotDiagnostics)
 
 set_target_properties(MrsRobotDiagnostics_MrsRobotDiagnostics
@@ -64,7 +71,7 @@ set_target_properties(MrsRobotDiagnostics_MrsRobotDiagnostics
 )
 
 target_sources(MrsRobotDiagnostics_MrsRobotDiagnostics
-  INTERFACE FILE_SET HEADERS BASE_DIRS "include"
+  PUBLIC FILE_SET HEADERS BASE_DIRS "include"
   FILES
     "include/mrs_robot_diagnostics/enums/robot_type.h"
     "include/mrs_robot_diagnostics/enums/tracker_state.h"
@@ -72,16 +79,18 @@ target_sources(MrsRobotDiagnostics_MrsRobotDiagnostics
     "include/mrs_robot_diagnostics/enums/enum_helpers.h"
     "include/mrs_robot_diagnostics/enums/enum_macros.h"
     "include/mrs_robot_diagnostics/sensor_handler.h"  
+    "include/mrs_robot_diagnostics/create_main_subscriber.tpp"
 )
 
 target_link_libraries(MrsRobotDiagnostics_MrsRobotDiagnostics
-  INTERFACE
+  PUBLIC
     rclcpp::rclcpp
     rclcpp_components::component
     pluginlib::pluginlib
     mrs_lib::mrs_lib
     ${mrs_msgs_TARGETS}
     tf2_ros::tf2_ros
+    ${diagnostic_msgs_TARGETS}
 )
 
 ## --------------------------------------------------------------
@@ -103,18 +112,42 @@ rclcpp_components_register_nodes(MrsRobotDiagnostics_StateMonitor "mrs_robot_dia
 
 target_compile_definitions(MrsRobotDiagnostics_StateMonitor PRIVATE USE_ROS_TIMER=${USE_ROS_TIMER})
 
-## | ----------- MrsRobotDiagnostics_CameraHandler ------------ |
+# ## | ----------- MrsRobotDiagnostics_CameraHandler ------------ |
+#
+# add_library(MrsRobotDiagnostics_CameraHandler SHARED
+#   src/sensor_handler_plugins/camera_handler.cpp
+# )
+#
+# target_link_libraries(MrsRobotDiagnostics_CameraHandler
+#   PRIVATE
+#     mrs_robot_diagnostics::mrs_robot_diagnostics 
+# )
+#
+# target_compile_definitions(MrsRobotDiagnostics_CameraHandler PRIVATE USE_ROS_TIMER=${USE_ROS_TIMER})
 
-add_library(MrsRobotDiagnostics_CameraHandler SHARED
-  src/sensor_handler_plugins/camera_handler.cpp
+## | ----------- MrsRobotDiagnostics_GPSHandler ------------ |
+add_library(MrsRobotDiagnostics_GPSHandler SHARED
+  src/sensor_handler_plugins/gps_handler.cpp
 )
 
-target_link_libraries(MrsRobotDiagnostics_CameraHandler
+target_link_libraries(MrsRobotDiagnostics_GPSHandler
   PRIVATE
     mrs_robot_diagnostics::mrs_robot_diagnostics 
 )
 
-target_compile_definitions(MrsRobotDiagnostics_CameraHandler PRIVATE USE_ROS_TIMER=${USE_ROS_TIMER})
+target_compile_definitions(MrsRobotDiagnostics_GPSHandler PRIVATE USE_ROS_TIMER=${USE_ROS_TIMER})
+
+## | ----------- MrsRobotDiagnostics_MagnetometerHandler ------------ |
+add_library(MrsRobotDiagnostics_MagnetometerHandler SHARED
+  src/sensor_handler_plugins/magnetometer_handler.cpp
+)
+
+target_link_libraries(MrsRobotDiagnostics_MagnetometerHandler
+  PRIVATE
+    mrs_robot_diagnostics::mrs_robot_diagnostics 
+)
+
+target_compile_definitions(MrsRobotDiagnostics_MagnetometerHandler PRIVATE USE_ROS_TIMER=${USE_ROS_TIMER})
 
 ## | -------- MrsRobotDiagnostics_GenericSensorHandler --------- |
 
@@ -129,6 +162,18 @@ target_link_libraries(MrsRobotDiagnostics_GenericSensorHandler
 
 target_compile_definitions(MrsRobotDiagnostics_GenericSensorHandler PRIVATE USE_ROS_TIMER=${USE_ROS_TIMER})
 
+## | -------------- MrsRobotDiagnostics_RCHandler --------------- |
+add_library(MrsRobotDiagnostics_RCHandler SHARED
+  src/sensor_handler_plugins/remote_controller.cpp
+)
+
+target_link_libraries(MrsRobotDiagnostics_RCHandler
+  PRIVATE
+    mrs_robot_diagnostics::mrs_robot_diagnostics
+)
+
+target_compile_definitions(MrsRobotDiagnostics_RCHandler PRIVATE USE_ROS_TIMER=${USE_ROS_TIMER})
+
 ## --------------------------------------------------------------
 ## |                       Export plugins                       |
 ## --------------------------------------------------------------
@@ -141,7 +186,6 @@ pluginlib_export_plugin_description_file(mrs_robot_diagnostics plugins.xml)
 
 install(
   TARGETS
-    MrsRobotDiagnostics_MrsRobotDiagnostics  
     ${LIBRARIES}
   EXPORT export_${PROJECT_NAME}
   ARCHIVE DESTINATION lib

@@ -18,7 +18,6 @@
 #include <pluginlib/class_loader.hpp>
 
 #include <mrs_msgs/msg/collision_avoidance_info.hpp>
-#include <mrs_msgs/msg/constraint_manager_diagnostics.hpp>
 #include <mrs_msgs/msg/control_info.hpp>
 #include <mrs_msgs/msg/control_manager_diagnostics.hpp>
 #include <mrs_msgs/msg/cpu_load.hpp>
@@ -26,6 +25,8 @@
 #include <mrs_msgs/msg/errorgraph_element_array.hpp>
 #include <mrs_msgs/msg/estimation_diagnostics.hpp>
 #include <mrs_msgs/msg/float64_stamped.hpp>
+#include <mrs_msgs/msg/control_manager_diagnostics.hpp>
+#include <mrs_msgs/msg/constraint_manager_diagnostics.hpp>
 #include <mrs_msgs/msg/gain_manager_diagnostics.hpp>
 #include <mrs_msgs/msg/general_robot_info.hpp>
 #include <mrs_msgs/msg/gps_info.hpp>
@@ -75,29 +76,6 @@ namespace mrs_robot_diagnostics
 {
 namespace state_monitor
 {
-
-/**
- * @brief Parameters for a dynamically loaded sensor handler plugin.
- */
-class SensorHandlerParams {
-
-public:
-  SensorHandlerParams(const std::string &address, const std::string &name_space, const std::string &sensor_name, const std::string &type,
-                      const std::string &topic)
-      : address(address)
-      , name_space(name_space)
-      , sensor_name(sensor_name)
-      , type(type)
-      , topic(topic) {
-  }
-
-public:
-  std::string address;     ///< pluginlib class address
-  std::string name_space;  ///< robot namespace
-  std::string sensor_name; ///< human-readable sensor name
-  std::string type;        ///< sensor type identifier
-  std::string topic;       ///< ROS topic for the sensor data
-};
 
 /**
  * @brief ROS2 composable node that aggregates UAV diagnostics from multiple subsystems.
@@ -243,7 +221,6 @@ private:
   // | -------------------- Sensor handlers --------------------- |
   std::unique_ptr<pluginlib::ClassLoader<mrs_robot_diagnostics::SensorHandler>> sensor_handler_loader_; ///< pluginlib loader for sensor handler plugins
   std::vector<std::string>                                                      _sensor_handler_names_;
-  std::map<std::string, SensorHandlerParams>                                    sensor_handlers_params_;
   std::vector<std::shared_ptr<mrs_robot_diagnostics::SensorHandler>>            sensor_handlers_;
   std::mutex                                                                    mutex_sensor_handler_list_;
 
@@ -323,10 +300,7 @@ private:
                                         std_msgs::msg::Float64::ConstSharedPtr mass_nominal, std_msgs::msg::Float64::ConstSharedPtr mass_estimate);
 
   /** @brief Build SystemHealthInfo from UAV status, GNSS, magnetometer, RC RSSI, and WiFi. */
-  mrs_msgs::msg::SystemHealthInfo parse_system_health_info(mrs_msgs::msg::UavStatus::ConstSharedPtr    uav_status,
-                                                           sensor_msgs::msg::NavSatFix::ConstSharedPtr gnss, mrs_msgs::msg::GpsInfo::ConstSharedPtr gnss_status,
-                                                           sensor_msgs::msg::MagneticField::ConstSharedPtr magnetic_field,
-                                                           mrs_msgs::msg::HwApiRcRssi::ConstSharedPtr      rc_rssi);
+  mrs_msgs::msg::SystemHealthInfo parse_system_health_info(mrs_msgs::msg::UavStatus::ConstSharedPtr uav_status);
 
   // | ------------------- Init methods ------------------------- |
 
