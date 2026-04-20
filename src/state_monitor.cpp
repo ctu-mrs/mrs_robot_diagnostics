@@ -277,7 +277,8 @@ void StateMonitor::timerMain() {
   const auto       mass_estimate                  = processIncomingMessage(sh_mass_estimate_);
   const auto       mass_nominal                   = processIncomingMessage(sh_mass_nominal_);
   const auto       mpc_tracker_diagnostics        = processIncomingMessage(sh_mpc_tracker_diagnostics_);
-  const auto       uav_status                     = processIncomingMessage(sh_uav_status_);
+  // TODO: uav status will be refactored, we will get the data directly
+  const auto uav_status = processIncomingMessage(sh_uav_status_);
 
   if (hw_api_status.hasNewMessage || control_manager_diagnostics.hasNewMessage) {
     const auto new_state = parse_uav_state(hw_api_status.message, control_manager_diagnostics.message);
@@ -301,8 +302,9 @@ void StateMonitor::timerMain() {
   if (hw_api_status.hasNewMessage || uav_status.hasNewMessage || mass_nominal.hasNewMessage || mass_estimate.hasNewMessage)
     last_uav_info_ = parse_uav_info(hw_api_status.message, uav_status.message, mass_nominal.message, mass_estimate.message);
 
-  if (uav_status.hasNewMessage)
-    last_system_health_info_ = parse_system_health_info(uav_status.message);
+  // Remove update gating on uav_status for system health info, since it contains sensor diagnostics data, which we want to share even if uav_status is not
+  // updating
+  last_system_health_info_ = parse_system_health_info(uav_status.message);
 
   ph_general_robot_info_.publish(last_general_robot_info_);
   ph_state_estimation_info_.publish(last_state_estimation_info_);
@@ -724,16 +726,16 @@ mrs_msgs::msg::SystemHealthInfo StateMonitor::parse_system_health_info(mrs_msgs:
   const bool is_uav_status_valid = uav_status != nullptr;
 
   if (is_uav_status_valid) {
-    msg.cpu_load   = uav_status->cpu_load;
-    msg.free_ram   = uav_status->free_ram;
-    msg.total_ram  = uav_status->total_ram;
-    msg.free_hdd   = uav_status->free_hdd;
-    const size_t n = std::min(uav_status->node_cpu_loads.cpu_loads.size(), uav_status->node_cpu_loads.node_names.size());
+    msg.onboard_computer_info.cpu_load  = uav_status->cpu_load;
+    msg.onboard_computer_info.free_ram  = uav_status->free_ram;
+    msg.onboard_computer_info.total_ram = uav_status->total_ram;
+    msg.onboard_computer_info.free_hdd  = uav_status->free_hdd;
+    const size_t n                      = std::min(uav_status->node_cpu_loads.cpu_loads.size(), uav_status->node_cpu_loads.node_names.size());
     for (size_t it = 0; it < n; it++) {
       mrs_msgs::msg::CpuLoad node_cpu_load;
       node_cpu_load.node_name = uav_status->node_cpu_loads.node_names.at(it);
       node_cpu_load.cpu_load  = uav_status->node_cpu_loads.cpu_loads.at(it);
-      msg.node_cpu_loads.push_back(node_cpu_load);
+      msg.onboard_computer_info.node_cpu_loads.push_back(node_cpu_load);
     }
 
     msg.hw_api_rate           = uav_status->hw_api_hz;
@@ -744,12 +746,16 @@ mrs_msgs::msg::SystemHealthInfo StateMonitor::parse_system_health_info(mrs_msgs:
   // Get Wifi info from the system
   const auto wifi = readWifiInfo();
   if (!wifi.interface.empty()) {
-    msg.wifi_interface    = wifi.interface;
-    msg.wifi_signal_dbm   = wifi.signal_dbm;
-    msg.wifi_link_quality = wifi.link_quality;
+    msg.onboard_computer_info.wifi_interface    = wifi.interface;
+    msg.onboard_computer_info.wifi_signal_dbm   = wifi.signal_dbm;
+    msg.onboard_computer_info.wifi_link_quality = wifi.link_quality;
   }
 
-  msg.available_sensors = available_sensors_;
+  {
+    std::scoped_lock lck(mutex_sensor_handler_list_);
+    // Get sensor status from handlers
+    msg.available_sensors = available_sensors_;
+  }
 
   return msg;
 }

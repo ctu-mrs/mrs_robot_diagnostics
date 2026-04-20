@@ -36,7 +36,6 @@
 #include <mrs_msgs/msg/sensor_status.hpp>
 #include <mrs_msgs/msg/state_estimation_info.hpp>
 #include <mrs_msgs/msg/system_health_info.hpp>
-#include <mrs_msgs/msg/uav_diagnostics.hpp>
 #include <mrs_msgs/msg/uav_info.hpp>
 #include <mrs_msgs/msg/uav_state.hpp>
 #include <mrs_msgs/msg/uav_status.hpp>
@@ -106,7 +105,6 @@ public:
   };
 
 private:
-  using out_diags_msg_t = mrs_msgs::msg::UavDiagnostics;
 
   rclcpp::Node::SharedPtr  node_;
   rclcpp::Clock::SharedPtr clock_;
