@@ -146,6 +146,7 @@ void StateMonitor::initialize() {
   if (!param_loader.loadedSuccessfully()) {
     RCLCPP_ERROR(node_->get_logger(), "Could not load all parameters!");
     rclcpp::shutdown();
+    return;
   }
 
   mrs_msgs::msg::SensorStatus ss_msg;
@@ -177,9 +178,8 @@ void StateMonitor::initialize() {
   sh_errorgraph_error_msg_ = mrs_lib::SubscriberHandler<mrs_msgs::msg::ErrorgraphElement>(shopts, "~/errors_in", &StateMonitor::cbk_errorgraph_element, this);
 
   // | -------------------- GeneralRobotInfo -------------------- |
-  ph_general_robot_info_          = mrs_lib::PublisherHandler<mrs_msgs::msg::GeneralRobotInfo>(node_, "~/general_robot_info_out");
-  sh_battery_state_               = mrs_lib::SubscriberHandler<sensor_msgs::msg::BatteryState>(shopts, "~/battery_state_in");
-  sh_automatic_start_can_takeoff_ = mrs_lib::SubscriberHandler<std_msgs::msg::Bool>(shopts, "~/automatic_start_can_takeoff_in", mrs_lib::no_timeout);
+  ph_general_robot_info_ = mrs_lib::PublisherHandler<mrs_msgs::msg::GeneralRobotInfo>(node_, "~/general_robot_info_out");
+  sh_battery_state_      = mrs_lib::SubscriberHandler<sensor_msgs::msg::BatteryState>(shopts, "~/battery_state_in");
 
   // | ------------------- StateEstimationInfo ------------------ |
   ph_state_estimation_info_   = mrs_lib::PublisherHandler<mrs_msgs::msg::StateEstimationInfo>(node_, "~/state_estimation_info_out");
@@ -207,6 +207,8 @@ void StateMonitor::initialize() {
   sh_uav_status_    = mrs_lib::SubscriberHandler<mrs_msgs::msg::UavStatus>(shopts, "~/uav_status_in");
   sh_mass_nominal_  = mrs_lib::SubscriberHandler<std_msgs::msg::Float64>(shopts, "~/mass_nominal_in");
   sh_mass_estimate_ = mrs_lib::SubscriberHandler<std_msgs::msg::Float64>(shopts, "~/mass_estimate_in");
+
+  preflight_checker_ = std::make_unique<preflight_checker::PreflightChecker>(node_, _robot_name_);
 
   // | -------------------- SystemHealthInfo -------------------- |
   ph_system_health_info_ = mrs_lib::PublisherHandler<mrs_msgs::msg::SystemHealthInfo>(node_, "~/system_health_info_out");
@@ -506,25 +508,26 @@ state_t StateMonitor::parse_uav_state(mrs_msgs::msg::HwApiStatus::ConstSharedPtr
   }
 }
 
-mrs_msgs::msg::GeneralRobotInfo StateMonitor::parse_general_robot_info(sensor_msgs::msg::BatteryState::ConstSharedPtr battery_state) {
+// | -------------------- Preflight checks -------------------- |
+
+mrs_msgs::msg::GeneralRobotInfo StateMonitor::parse_general_robot_info([[maybe_unused]] sensor_msgs::msg::BatteryState::ConstSharedPtr battery_state) {
   mrs_msgs::msg::GeneralRobotInfo msg;
   msg.stamp            = clock_->now();
   msg.robot_name       = _robot_name_;
   msg.robot_type       = static_cast<int>(robot_type_);
   msg.robot_ip_address = robot_ip_address_;
 
-  const bool autostart_running = sh_automatic_start_can_takeoff_.getNumPublishers();
-  const bool autostart_ready   = sh_automatic_start_can_takeoff_.hasMsg() && sh_automatic_start_can_takeoff_.getMsg()->data;
-
-  const auto uav_state = uav_state_.value();
-
+  const auto uav_state      = uav_state_.value();
   const bool state_offboard = uav_state == state_t::OFFBOARD;
-  msg.ready_to_start        = state_offboard && autostart_running && autostart_ready;
+
   msg.problems_preventing_start.clear();
 
-  // If not flying, check what is preventing the start and add it to the message.
-  // If flying, we can assume everything was fine at takeoff, so no need to check for problems preventing start
+  // If not flying, explain why we're not ready. When flying autonomously, we
+  // assume everything was fine at takeoff and skip the diagnosis.
   if (!is_flying_autonomously(uav_state)) {
+    const auto preflight_result = preflight_checker_->runPreflightChecks();
+    msg.ready_to_start          = preflight_result.can_takeoff && state_offboard;
+
     switch (uav_state) {
       case state_t::UNKNOWN:
         msg.problems_preventing_start.emplace_back("UAV state is UNKNOWN");
@@ -536,39 +539,14 @@ mrs_msgs::msg::GeneralRobotInfo StateMonitor::parse_general_robot_info(sensor_ms
         msg.problems_preventing_start.emplace_back("UAV is DISARMED");
         break;
       case state_t::OFFBOARD:
-        // In OFFBOARD but not flying — autostart checks below will explain why
+        // if we're in OFFBOARD mode, but not ready, we can give more insights on why the preflight checks are failing
+        for (const auto &v : preflight_result.violations)
+          msg.problems_preventing_start.push_back(v);
+
         break;
       default:
         msg.problems_preventing_start.emplace_back("UAV is not in OFFBOARD mode");
         break;
-    }
-
-    if (state_offboard && !autostart_running)
-      msg.problems_preventing_start.emplace_back("Automatic start node is not running");
-    else if (state_offboard && !autostart_ready) {
-      // Find the root cause of autostart not being ready
-      std::scoped_lock lck(errorgraph_mtx_);
-      const auto       dependency_roots = errorgraph_.find_dependency_roots(autostart_node_id_);
-      if (dependency_roots.empty()) {
-        msg.problems_preventing_start.emplace_back("Automatic start reports UAV not ready");
-      } else {
-        for (const auto &root : dependency_roots) {
-          // For each root, check if it's an node error or a missing topic and add it to the problems preventing start
-          std::visit(
-              [&msg](const auto &info) {
-                using T = std::decay_t<decltype(info)>;
-                if constexpr (std::is_same_v<T, mrs_lib::errorgraph::Errorgraph::node_info_t>) {
-                  // If it's a node error, add all errors of the node to the problems preventing start
-                  for (const auto &error : info.errors)
-                    msg.problems_preventing_start.push_back(error.type);
-                } else {
-                  // If it's a missing topic, add the topic name to the problems preventing start
-                  msg.problems_preventing_start.push_back("waiting for topic: " + info.topic_name);
-                }
-              },
-              root);
-        }
-      }
     }
   }
 

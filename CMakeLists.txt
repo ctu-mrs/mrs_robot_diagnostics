@@ -17,7 +17,7 @@ endif()
 
 # set the compile options to show code warnings
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-  add_compile_options(-Wall -Wextra)
+  add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
 if(ENABLE_COVERAGE)
@@ -43,11 +43,7 @@ set(DEPENDENCIES
 set(LIBRARIES
   MrsRobotDiagnostics_MrsRobotDiagnostics
   MrsRobotDiagnostics_StateMonitor
-  MrsRobotDiagnostics_GenericSensorHandler
-  # MrsRobotDiagnostics_CameraHandler
-  MrsRobotDiagnostics_GPSHandler
-  MrsRobotDiagnostics_MagnetometerHandler
-  MrsRobotDiagnostics_RCHandler
+  MrsRobotDiagnostics_SensorPlugins
 )
 
 foreach(DEP IN LISTS DEPENDENCIES)
@@ -101,6 +97,14 @@ target_link_libraries(MrsRobotDiagnostics_MrsRobotDiagnostics
 
 add_library(MrsRobotDiagnostics_StateMonitor SHARED
   src/state_monitor.cpp
+  src/preflight_checker.cpp
+)
+
+target_sources(MrsRobotDiagnostics_StateMonitor
+  PUBLIC FILE_SET HEADERS BASE_DIRS "include"
+  FILES
+    "include/mrs_robot_diagnostics/state_monitor.h"
+    "include/mrs_robot_diagnostics/preflight_checker.h"
 )
 
 target_link_libraries(MrsRobotDiagnostics_StateMonitor
@@ -118,6 +122,12 @@ target_compile_definitions(MrsRobotDiagnostics_StateMonitor PRIVATE USE_ROS_TIME
 #   src/sensor_handler_plugins/camera_handler.cpp
 # )
 #
+# target_sources(MrsRobotDiagnostics_CameraHandler
+#   PUBLIC FILE_SET HEADERS BASE_DIRS "include"
+#   FILES
+#     "include/mrs_robot_diagnostics/sensor_plugins/camera_handler.h"
+# )
+#
 # target_link_libraries(MrsRobotDiagnostics_CameraHandler
 #   PRIVATE
 #     mrs_robot_diagnostics::mrs_robot_diagnostics 
@@ -125,60 +135,50 @@ target_compile_definitions(MrsRobotDiagnostics_StateMonitor PRIVATE USE_ROS_TIME
 #
 # target_compile_definitions(MrsRobotDiagnostics_CameraHandler PRIVATE USE_ROS_TIMER=${USE_ROS_TIMER})
 
-## | ----------- MrsRobotDiagnostics_GPSHandler ------------ |
-add_library(MrsRobotDiagnostics_GPSHandler SHARED
+## | -------------- MrsRobotDiagnostics_SensorPlugins --------------- |
+
+add_library(MrsRobotDiagnostics_SensorPlugins SHARED
   src/sensor_handler_plugins/gps_handler.cpp
-)
-
-target_link_libraries(MrsRobotDiagnostics_GPSHandler
-  PRIVATE
-    mrs_robot_diagnostics::mrs_robot_diagnostics 
-)
-
-target_compile_definitions(MrsRobotDiagnostics_GPSHandler PRIVATE USE_ROS_TIMER=${USE_ROS_TIMER})
-
-## | ----------- MrsRobotDiagnostics_MagnetometerHandler ------------ |
-add_library(MrsRobotDiagnostics_MagnetometerHandler SHARED
   src/sensor_handler_plugins/magnetometer_handler.cpp
-)
-
-target_link_libraries(MrsRobotDiagnostics_MagnetometerHandler
-  PRIVATE
-    mrs_robot_diagnostics::mrs_robot_diagnostics 
-)
-
-target_compile_definitions(MrsRobotDiagnostics_MagnetometerHandler PRIVATE USE_ROS_TIMER=${USE_ROS_TIMER})
-
-## | -------- MrsRobotDiagnostics_GenericSensorHandler --------- |
-
-add_library(MrsRobotDiagnostics_GenericSensorHandler SHARED
   src/sensor_handler_plugins/generic_handler.cpp
-)
-
-target_link_libraries(MrsRobotDiagnostics_GenericSensorHandler
-  PRIVATE
-    mrs_robot_diagnostics::mrs_robot_diagnostics
-)
-
-target_compile_definitions(MrsRobotDiagnostics_GenericSensorHandler PRIVATE USE_ROS_TIMER=${USE_ROS_TIMER})
-
-## | -------------- MrsRobotDiagnostics_RCHandler --------------- |
-add_library(MrsRobotDiagnostics_RCHandler SHARED
   src/sensor_handler_plugins/remote_controller.cpp
 )
 
-target_link_libraries(MrsRobotDiagnostics_RCHandler
+target_sources(MrsRobotDiagnostics_SensorPlugins
+  PUBLIC FILE_SET HEADERS BASE_DIRS "include"
+  FILES
+    "include/mrs_robot_diagnostics/sensor_plugins/gps_handler.h"
+    "include/mrs_robot_diagnostics/sensor_plugins/magnetometer_handler.h"
+    "include/mrs_robot_diagnostics/sensor_plugins/generic_handler.h"
+    "include/mrs_robot_diagnostics/sensor_plugins/remote_controller.h"
+)
+
+target_link_libraries(MrsRobotDiagnostics_SensorPlugins
   PRIVATE
     mrs_robot_diagnostics::mrs_robot_diagnostics
 )
 
-target_compile_definitions(MrsRobotDiagnostics_RCHandler PRIVATE USE_ROS_TIMER=${USE_ROS_TIMER})
+target_compile_definitions(MrsRobotDiagnostics_SensorPlugins PRIVATE USE_ROS_TIMER=${USE_ROS_TIMER})
 
 ## --------------------------------------------------------------
 ## |                       Export plugins                       |
 ## --------------------------------------------------------------
 
 pluginlib_export_plugin_description_file(mrs_robot_diagnostics plugins.xml)
+
+## --------------------------------------------------------------
+## |                           Testing                          |
+## --------------------------------------------------------------
+
+if(ENABLE_TESTS)
+
+  find_package(ament_cmake_clang_format REQUIRED)
+  ament_clang_format(CONFIG_FILE "${PROJECT_SOURCE_DIR}/.clang-format")
+
+  find_package(ament_cmake_xmllint REQUIRED)
+  ament_xmllint()
+
+endif()
 
 ## --------------------------------------------------------------
 ## |                           Install                          |

@@ -30,9 +30,11 @@
 #include <mrs_msgs/msg/gain_manager_diagnostics.hpp>
 #include <mrs_msgs/msg/general_robot_info.hpp>
 #include <mrs_msgs/msg/gps_info.hpp>
+#include <mrs_msgs/msg/hw_api_capabilities.hpp>
 #include <mrs_msgs/msg/hw_api_rc_rssi.hpp>
 #include <mrs_msgs/msg/hw_api_status.hpp>
 #include <mrs_msgs/msg/mpc_tracker_diagnostics.hpp>
+#include <mrs_msgs/msg/safety_area_manager_diagnostics.hpp>
 #include <mrs_msgs/msg/sensor_status.hpp>
 #include <mrs_msgs/msg/state_estimation_info.hpp>
 #include <mrs_msgs/msg/system_health_info.hpp>
@@ -43,8 +45,10 @@
 
 #include <std_msgs/msg/bool.hpp>
 #include <sensor_msgs/msg/battery_state.hpp>
+#include <sensor_msgs/msg/imu.hpp>
 #include <sensor_msgs/msg/nav_sat_fix.hpp>
 #include <sensor_msgs/msg/magnetic_field.hpp>
+#include <sensor_msgs/msg/range.hpp>
 
 #include <mrs_lib/errorgraph/errorgraph.h>
 #include <mrs_lib/mutex.h>
@@ -63,6 +67,7 @@
 #include <mrs_robot_diagnostics/enums/uav_state.h>
 
 #include <mrs_robot_diagnostics/sensor_handler.h>
+#include <mrs_robot_diagnostics/preflight_checker.h>
 
 #include <limits>
 #include <map>
@@ -105,7 +110,6 @@ public:
   };
 
 private:
-
   rclcpp::Node::SharedPtr  node_;
   rclcpp::Clock::SharedPtr clock_;
 
@@ -114,6 +118,7 @@ private:
   rclcpp::CallbackGroup::SharedPtr cbkgrp_sc_;     ///< callback group for service clients
   rclcpp::CallbackGroup::SharedPtr cbkgrp_timers_; ///< callback group for timers
 
+  std::unique_ptr<preflight_checker::PreflightChecker> preflight_checker_; ///< helper object for performing preflight checks
   /** @brief Load parameters, create subscribers/publishers/timers, initialize plugins. */
   void initialize(void);
 
@@ -147,7 +152,6 @@ private:
   // | -------------------- GeneralRobotInfo -------------------- |
   mrs_lib::PublisherHandler<mrs_msgs::msg::GeneralRobotInfo> ph_general_robot_info_;
   mrs_msgs::msg::GeneralRobotInfo                            last_general_robot_info_;
-  mrs_lib::SubscriberHandler<std_msgs::msg::Bool>            sh_automatic_start_can_takeoff_;
   mrs_lib::SubscriberHandler<sensor_msgs::msg::BatteryState> sh_battery_state_;
 
   // | ------------------- StateEstimationInfo ------------------ |
@@ -275,7 +279,7 @@ private:
   state_t parse_uav_state(mrs_msgs::msg::HwApiStatus::ConstSharedPtr               hw_api_status,
                           mrs_msgs::msg::ControlManagerDiagnostics::ConstSharedPtr control_manager_diagnostics);
 
-  /** @brief Build GeneralRobotInfo from battery state, autostart status, and error graph. */
+  /** @brief Build GeneralRobotInfo from battery state, preflight result used to populate ready_to_start and problems_preventing_start fields. */
   mrs_msgs::msg::GeneralRobotInfo parse_general_robot_info(sensor_msgs::msg::BatteryState::ConstSharedPtr battery_state);
 
   /** @brief Build StateEstimationInfo from estimation diagnostics, headings, and GNSS. */
