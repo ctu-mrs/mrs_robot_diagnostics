@@ -1,19 +1,19 @@
 #pragma once
-#include <rclcpp/rclcpp.hpp>
 #include <cmath>
 #include <geometry_msgs/msg/vector3.hpp>
 #include <mrs_lib/param_loader.h>
 #include <mrs_lib/subscriber_handler.h>
+#include <mrs_msgs/msg/control_manager_diagnostics.hpp>
+#include <mrs_msgs/msg/estimation_diagnostics.hpp>
+#include <mrs_msgs/msg/hw_api_capabilities.hpp>
+#include <mrs_msgs/msg/safety_area_manager_diagnostics.hpp>
 #include <mutex>
 #include <optional>
+#include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/imu.hpp>
 #include <sensor_msgs/msg/range.hpp>
 #include <string>
 #include <vector>
-
-#include <mrs_msgs/msg/estimation_diagnostics.hpp>
-#include <mrs_msgs/msg/safety_area_manager_diagnostics.hpp>
-#include <mrs_msgs/msg/hw_api_capabilities.hpp>
 
 namespace mrs_robot_diagnostics
 {
@@ -30,13 +30,14 @@ public:
   /** @brief Result of running the full preflight check suite. */
   struct PreflightResult
   {
-    bool                     speed_ok       = true;
-    bool                     height_ok      = true;
-    bool                     gyro_ok        = true;
-    bool                     topics_ok      = true;
-    bool                     position_valid = true;
-    bool                     can_takeoff    = false; ///< AND of all individual checks
-    std::vector<std::string> violations;             ///< human-readable failure reasons
+    bool                     speed_ok        = true;
+    bool                     height_ok       = true;
+    bool                     gyro_ok         = true;
+    bool                     topics_ok       = true;
+    bool                     position_valid  = true;
+    bool                     control_enabled = true;
+    bool                     can_takeoff     = false; ///< AND of all individual checks
+    std::vector<std::string> violations;              ///< human-readable failure reasons
   };
 
   struct PreflightInputs
@@ -113,7 +114,7 @@ private:
   {
     std::string  name;
     rclcpp::Time last_msg_time;
-    bool ever_seen;
+    bool         ever_seen;
   };
   std::mutex                                          topic_heartbeats_mutex_;
   std::vector<TopicHeartbeat>                         topic_heartbeats_;
@@ -129,6 +130,7 @@ private:
   mrs_lib::SubscriberHandler<sensor_msgs::msg::Range>                     sh_hw_api_distance_sensor_;
   mrs_lib::SubscriberHandler<sensor_msgs::msg::Imu>                       sh_hw_api_imu_;
   mrs_lib::SubscriberHandler<mrs_msgs::msg::SafetyAreaManagerDiagnostics> sh_safety_area_manager_diagnostics_;
+  mrs_lib::SubscriberHandler<mrs_msgs::msg::ControlManagerDiagnostics>    sh_control_manager_diagnostics_;
 };
 
 } // namespace preflight_checker
