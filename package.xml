@@ -28,6 +28,7 @@
   <depend>diagnostic_msgs</depend>
   <depend>mrs_msgs</depend>
   <depend>mrs_lib</depend>
+  <depend>nav_msgs</depend>
   <depend>nlohmann-json-dev</depend>
   <exec_depend>python3-uvicorn</exec_depend>
 

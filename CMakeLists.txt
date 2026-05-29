@@ -35,6 +35,7 @@ set(DEPENDENCIES
   rclcpp_components
   mrs_msgs
   mrs_lib
+  nav_msgs
   tf2_ros
   pluginlib
   diagnostic_msgs
@@ -98,6 +99,9 @@ target_link_libraries(MrsRobotDiagnostics_MrsRobotDiagnostics
 add_library(MrsRobotDiagnostics_StateMonitor SHARED
   src/state_monitor.cpp
   src/preflight_checker.cpp
+  src/utils/flight_timer.cpp
+  src/utils/wh_drained_integrator.cpp
+  src/utils/host_stats.cpp
 )
 
 target_sources(MrsRobotDiagnostics_StateMonitor
@@ -105,6 +109,10 @@ target_sources(MrsRobotDiagnostics_StateMonitor
   FILES
     "include/mrs_robot_diagnostics/state_monitor.h"
     "include/mrs_robot_diagnostics/preflight_checker.h"
+    "include/mrs_robot_diagnostics/utils/rate_tracker.h"
+    "include/mrs_robot_diagnostics/utils/flight_timer.h"
+    "include/mrs_robot_diagnostics/utils/wh_drained_integrator.h"
+    "include/mrs_robot_diagnostics/utils/host_stats.h"
 )
 
 target_link_libraries(MrsRobotDiagnostics_StateMonitor
