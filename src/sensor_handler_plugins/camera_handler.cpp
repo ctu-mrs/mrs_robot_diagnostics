@@ -5,11 +5,8 @@ namespace mrs_robot_diagnostics
 
 namespace camera_handler
 {
-bool CameraHandler::initialize(rclcpp::Node::SharedPtr &node, const std::string &name, const std::string &name_space, const std::string &topic,
-                               rclcpp::CallbackGroup::SharedPtr cbkgrp_subs) {
-  _name_  = name;
-  _topic_ = topic;
-
+bool CameraHandler::onInitialize(rclcpp::Node::SharedPtr &node, [[maybe_unused]] const std::string &config_key, [[maybe_unused]] const std::string &name_space,
+                                 rclcpp::CallbackGroup::SharedPtr cbkgrp_subs) {
 
   // Initialize tf2 components
   tf_buffer_   = std::make_unique<tf2_ros::Buffer>(node->get_clock());
@@ -46,7 +43,7 @@ bool CameraHandler::initialize(rclcpp::Node::SharedPtr &node, const std::string 
 
   std::string image_topic_name;
   node->get_parameter("image_topic", image_topic_name);
-  sensor_topic_ = image_topic_name; // Set the main topic for status updates
+  topic_ = image_topic_name; // Set the main topic for status updates
   RCLCPP_INFO(node->get_logger(), " Subscribing to image topic: %s", image_topic_name.c_str());
 
   std::string camera_info_topic_name;
@@ -74,42 +71,42 @@ bool CameraHandler::initialize(rclcpp::Node::SharedPtr &node, const std::string 
 
   // Subscribers
   RCLCPP_INFO(node->get_logger(), "Subscribing to camera info topic: %s", camera_info_topic_name.c_str());
-  sh_image_              = createSubscriber<sensor_msgs::msg::Image>(node, image_topic_name);
+  sh_image_              = create_main_subscriber<sensor_msgs::msg::Image>(node, image_topic_name);
   sh_camera_info_        = mrs_lib::SubscriberHandler<sensor_msgs::msg::CameraInfo>(shopts, camera_info_topic_name);
   sh_camera_orientation_ = mrs_lib::SubscriberHandler<std_msgs::msg::Float32MultiArray>(shopts, camera_orientation_topic_name);
 
   // Publisher
   ph_camera_details_ = mrs_lib::PublisherHandler<mrs_msgs::msg::SensorInfo>(node, "~/sensor_info_out");
 
-  RCLCPP_INFO(node->get_logger(), "Camera handler '%s' initialized in namespace '%s'", name.c_str(), name_space.c_str());
+  RCLCPP_INFO(node->get_logger(), "[CameraHandler] '%s' initialized, topic: '%s'", name_.c_str(), topic_.c_str());
   is_initialized_ = true;
   return true;
 }
 
 mrs_msgs::msg::SensorStatus CameraHandler::updateStatus() {
   mrs_msgs::msg::SensorStatus ss_msg;
-  ss_msg.name  = _name_;
+  ss_msg.name  = name_;
   ss_msg.type  = mrs_msgs::msg::SensorStatus::TYPE_CAMERA;
-  ss_msg.topic = sensor_topic_;
+  ss_msg.topic = topic_;
 
   if (!is_initialized_) {
-    ss_msg.ready  = false;
-    ss_msg.rate   = -1;
-    ss_msg.status = "NOT_INITIALIZED";
+    ss_msg.ready = false;
+    ss_msg.rate  = -1;
+    // ss_msg.status = "NOT_INITIALIZED";
     return ss_msg;
   }
 
-  json camera_info_json;
+  nlohmann::json camera_info_json;
   if (sh_camera_info_.hasMsg()) {
 
-    ss_msg.rate = current_rate_;
+    ss_msg.rate = measured_rate_;
 
     bool has_image = sh_image_.hasMsg();
     ss_msg.ready   = has_image;
     if (has_image) {
-      ss_msg.status = "OK";
+      // ss_msg.status = "OK";
     } else {
-      ss_msg.status = "NO_IMAGE_DATA";
+      // ss_msg.status = "NO_IMAGE_DATA";
     }
 
     auto         msg    = sh_camera_info_.getMsg();
@@ -129,13 +126,13 @@ mrs_msgs::msg::SensorStatus CameraHandler::updateStatus() {
     };
 
   } else {
-    ss_msg.ready  = false;
-    ss_msg.rate   = -1;
-    ss_msg.status = "NO_CAMERA_INFO";
+    ss_msg.ready = false;
+    ss_msg.rate  = -1;
+    // ss_msg.status = "NO_CAMERA_INFO";
   }
 
   geometry_msgs::msg::TransformStamped transform;
-  json                                 camera_tf_json;
+  nlohmann::json                       camera_tf_json;
   try {
     transform = tf_buffer_->lookupTransform(_fcu_frame_, _camera_frame_, tf2::TimePointZero);
     double x  = transform.transform.translation.x;
@@ -161,7 +158,7 @@ mrs_msgs::msg::SensorStatus CameraHandler::updateStatus() {
   }
 
 
-  json optical_tf_json;
+  nlohmann::json optical_tf_json;
   try {
     transform = tf_buffer_->lookupTransform(_fcu_frame_, _optical_frame_, tf2::TimePointZero);
     double x  = transform.transform.translation.x;
@@ -187,7 +184,7 @@ mrs_msgs::msg::SensorStatus CameraHandler::updateStatus() {
   }
 
 
-  json camera_orientation_json;
+  nlohmann::json camera_orientation_json;
   if (sh_camera_orientation_.hasMsg()) {
     auto orientation_msg    = sh_camera_orientation_.getMsg();
     camera_orientation_json = {
@@ -200,8 +197,8 @@ mrs_msgs::msg::SensorStatus CameraHandler::updateStatus() {
     };
   }
 
-  json json_msg = {
-      {"camera_topic", sensor_topic_},
+  nlohmann::json json_msg = {
+      {"camera_topic", topic_},
       {"camera_frame_tf", camera_tf_json},
       {"optical_frame_tf", optical_tf_json},
       {"camera_info", camera_info_json},

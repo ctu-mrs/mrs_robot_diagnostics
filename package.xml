@@ -9,6 +9,7 @@
     entire robotic system. </description>
 
   <maintainer email="spurny@fly4future.com">Vojtech Spurny</maintainer>
+  <maintainer email="rivera@fly4future.com">Marlon Rivera</maintainer>
   <author email="spurny@fly4future.com">Vojtech Spurny</author>
 
   <license>MIT</license>
@@ -17,14 +18,23 @@
   <buildtool_depend>ament_cmake_ros</buildtool_depend>
 
   <depend>rclcpp</depend>
+  <depend>rclpy</depend>
   <depend>rclcpp_components</depend>
   <depend>rclcpp_lifecycle</depend>
   <depend>launch</depend>
   <depend>launch_ros</depend>
   <depend>pluginlib</depend>
   <depend>builtin_interfaces</depend>
+  <depend>diagnostic_msgs</depend>
   <depend>mrs_msgs</depend>
   <depend>mrs_lib</depend>
+  <depend>nav_msgs</depend>
+  <depend>nlohmann-json-dev</depend>
+  <exec_depend>python3-uvicorn</exec_depend>
+
+  <!-- Linters -->
+  <test_depend>ament_cmake_clang_format</test_depend>
+  <test_depend>ament_cmake_xmllint</test_depend>
 
   <export>
     <build_type>ament_cmake</build_type>

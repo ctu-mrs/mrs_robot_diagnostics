@@ -17,7 +17,7 @@ endif()
 
 # set the compile options to show code warnings
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-  add_compile_options(-Wall -Wextra)
+  add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
 if(ENABLE_COVERAGE)
@@ -35,13 +35,16 @@ set(DEPENDENCIES
   rclcpp_components
   mrs_msgs
   mrs_lib
+  nav_msgs
   tf2_ros
   pluginlib
+  diagnostic_msgs
 )
 
 set(LIBRARIES
+  MrsRobotDiagnostics_MrsRobotDiagnostics
   MrsRobotDiagnostics_StateMonitor
-  MrsRobotDiagnostics_CameraHandler
+  MrsRobotDiagnostics_SensorPlugins
 )
 
 foreach(DEP IN LISTS DEPENDENCIES)
@@ -49,11 +52,13 @@ foreach(DEP IN LISTS DEPENDENCIES)
 endforeach()
 
 ## --------------------------------------------------------------
-## |                      Interface Library                     |
+## |                      Shared Library                     |
 ## --------------------------------------------------------------
 
-# Interface library for the plugin API
-add_library(MrsRobotDiagnostics_MrsRobotDiagnostics INTERFACE)
+# Shared library for the plugin API
+add_library(MrsRobotDiagnostics_MrsRobotDiagnostics SHARED
+  src/sensor_handler.cpp
+)
 add_library(mrs_robot_diagnostics::mrs_robot_diagnostics ALIAS MrsRobotDiagnostics_MrsRobotDiagnostics)
 
 set_target_properties(MrsRobotDiagnostics_MrsRobotDiagnostics
@@ -63,7 +68,7 @@ set_target_properties(MrsRobotDiagnostics_MrsRobotDiagnostics
 )
 
 target_sources(MrsRobotDiagnostics_MrsRobotDiagnostics
-  INTERFACE FILE_SET HEADERS BASE_DIRS "include"
+  PUBLIC FILE_SET HEADERS BASE_DIRS "include"
   FILES
     "include/mrs_robot_diagnostics/enums/robot_type.h"
     "include/mrs_robot_diagnostics/enums/tracker_state.h"
@@ -71,16 +76,18 @@ target_sources(MrsRobotDiagnostics_MrsRobotDiagnostics
     "include/mrs_robot_diagnostics/enums/enum_helpers.h"
     "include/mrs_robot_diagnostics/enums/enum_macros.h"
     "include/mrs_robot_diagnostics/sensor_handler.h"  
+    "include/mrs_robot_diagnostics/create_main_subscriber.tpp"
 )
 
 target_link_libraries(MrsRobotDiagnostics_MrsRobotDiagnostics
-  INTERFACE
+  PUBLIC
     rclcpp::rclcpp
     rclcpp_components::component
     pluginlib::pluginlib
     mrs_lib::mrs_lib
     ${mrs_msgs_TARGETS}
     tf2_ros::tf2_ros
+    ${diagnostic_msgs_TARGETS}
 )
 
 ## --------------------------------------------------------------
@@ -91,6 +98,21 @@ target_link_libraries(MrsRobotDiagnostics_MrsRobotDiagnostics
 
 add_library(MrsRobotDiagnostics_StateMonitor SHARED
   src/state_monitor.cpp
+  src/preflight_checker.cpp
+  src/utils/flight_timer.cpp
+  src/utils/wh_drained_integrator.cpp
+  src/utils/host_stats.cpp
+)
+
+target_sources(MrsRobotDiagnostics_StateMonitor
+  PUBLIC FILE_SET HEADERS BASE_DIRS "include"
+  FILES
+    "include/mrs_robot_diagnostics/state_monitor.h"
+    "include/mrs_robot_diagnostics/preflight_checker.h"
+    "include/mrs_robot_diagnostics/utils/rate_tracker.h"
+    "include/mrs_robot_diagnostics/utils/flight_timer.h"
+    "include/mrs_robot_diagnostics/utils/wh_drained_integrator.h"
+    "include/mrs_robot_diagnostics/utils/host_stats.h"
 )
 
 target_link_libraries(MrsRobotDiagnostics_StateMonitor
@@ -102,18 +124,49 @@ rclcpp_components_register_nodes(MrsRobotDiagnostics_StateMonitor "mrs_robot_dia
 
 target_compile_definitions(MrsRobotDiagnostics_StateMonitor PRIVATE USE_ROS_TIMER=${USE_ROS_TIMER})
 
-## | ----------- MrsRobotDiagnostics_CameraHandler ------------ |
+# ## | ----------- MrsRobotDiagnostics_CameraHandler ------------ |
+#
+# add_library(MrsRobotDiagnostics_CameraHandler SHARED
+#   src/sensor_handler_plugins/camera_handler.cpp
+# )
+#
+# target_sources(MrsRobotDiagnostics_CameraHandler
+#   PUBLIC FILE_SET HEADERS BASE_DIRS "include"
+#   FILES
+#     "include/mrs_robot_diagnostics/sensor_plugins/camera_handler.h"
+# )
+#
+# target_link_libraries(MrsRobotDiagnostics_CameraHandler
+#   PRIVATE
+#     mrs_robot_diagnostics::mrs_robot_diagnostics 
+# )
+#
+# target_compile_definitions(MrsRobotDiagnostics_CameraHandler PRIVATE USE_ROS_TIMER=${USE_ROS_TIMER})
 
-add_library(MrsRobotDiagnostics_CameraHandler SHARED
-  src/sensor_handler_plugins/camera_handler.cpp
+## | -------------- MrsRobotDiagnostics_SensorPlugins --------------- |
+
+add_library(MrsRobotDiagnostics_SensorPlugins SHARED
+  src/sensor_handler_plugins/gps_handler.cpp
+  src/sensor_handler_plugins/magnetometer_handler.cpp
+  src/sensor_handler_plugins/generic_handler.cpp
+  src/sensor_handler_plugins/remote_controller.cpp
 )
 
-target_link_libraries(MrsRobotDiagnostics_CameraHandler
+target_sources(MrsRobotDiagnostics_SensorPlugins
+  PUBLIC FILE_SET HEADERS BASE_DIRS "include"
+  FILES
+    "include/mrs_robot_diagnostics/sensor_plugins/gps_handler.h"
+    "include/mrs_robot_diagnostics/sensor_plugins/magnetometer_handler.h"
+    "include/mrs_robot_diagnostics/sensor_plugins/generic_handler.h"
+    "include/mrs_robot_diagnostics/sensor_plugins/remote_controller.h"
+)
+
+target_link_libraries(MrsRobotDiagnostics_SensorPlugins
   PRIVATE
-    mrs_robot_diagnostics::mrs_robot_diagnostics 
+    mrs_robot_diagnostics::mrs_robot_diagnostics
 )
 
-target_compile_definitions(MrsRobotDiagnostics_CameraHandler PRIVATE USE_ROS_TIMER=${USE_ROS_TIMER})
+target_compile_definitions(MrsRobotDiagnostics_SensorPlugins PRIVATE USE_ROS_TIMER=${USE_ROS_TIMER})
 
 ## --------------------------------------------------------------
 ## |                       Export plugins                       |
@@ -122,12 +175,25 @@ target_compile_definitions(MrsRobotDiagnostics_CameraHandler PRIVATE USE_ROS_TIM
 pluginlib_export_plugin_description_file(mrs_robot_diagnostics plugins.xml)
 
 ## --------------------------------------------------------------
+## |                           Testing                          |
+## --------------------------------------------------------------
+
+if(ENABLE_TESTS)
+
+  find_package(ament_cmake_clang_format REQUIRED)
+  ament_clang_format(CONFIG_FILE "${PROJECT_SOURCE_DIR}/.clang-format")
+
+  find_package(ament_cmake_xmllint REQUIRED)
+  ament_xmllint()
+
+endif()
+
+## --------------------------------------------------------------
 ## |                           Install                          |
 ## --------------------------------------------------------------
 
 install(
   TARGETS
-    MrsRobotDiagnostics_MrsRobotDiagnostics  
     ${LIBRARIES}
   EXPORT export_${PROJECT_NAME}
   ARCHIVE DESTINATION lib
@@ -138,6 +204,11 @@ install(
 
 install(
   DIRECTORY launch
+  DESTINATION share/${PROJECT_NAME}
+)
+
+install(
+  DIRECTORY scripts
   DESTINATION share/${PROJECT_NAME}
 )
 

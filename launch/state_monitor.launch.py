@@ -6,7 +6,7 @@ import sys
 
 from launch_ros.actions import ComposableNodeContainer, LoadComposableNodes
 from launch_ros.descriptions import ComposableNode
-from launch.actions import DeclareLaunchArgument
+from launch.actions import DeclareLaunchArgument, ExecuteProcess
 from launch.conditions import IfCondition, UnlessCondition
 from launch.substitutions import (
     LaunchConfiguration,
@@ -143,51 +143,61 @@ def generate_launch_description():
         name='state_monitor',
 
         parameters=[
-            {"robot_name": robot_name},
-            {"uav_type": uav_type},
-            {"robot_type": robot_type},
             {"available_sensors": available_sensors},
             {"custom_config": custom_config},
+            {"robot_name": robot_name},
+            {"robot_type": robot_type},
+            {"uav_type": uav_type},
             {"use_sim_time": use_sim_time},
             {'config': this_pkg_path + '/config/state_monitor_config.yaml'},
-            # additional parameters for camera plugin 
+            {'preflight_check_config': this_pkg_path + '/config/preflight_check_config.yaml'},
+            # additional parameters for camera plugin
             {'camera_frame': [robot_name, '/servo_camera/camera_frame']},
-            {'optical_frame': [robot_name, '/servo_camera/optical_frame']},
-            {'fcu_frame': [robot_name, '/fcu']},
-            {'image_topic': [robot_name, '/servo_camera/image_raw']},
             {'camera_info_topic': [robot_name, '/servo_camera/camera_info']},
             {'camera_orientation_topic': [robot_name, '/servo_camera/orientation']},
+            {'fcu_frame': [robot_name, '/fcu']},
+            {'image_topic': [robot_name, '/servo_camera/image_raw']},
+            {'optical_frame': [robot_name, '/servo_camera/optical_frame']},
         ],
 
         remappings=[
 
             # publishers
-            ("~/general_robot_info_out", "~/general_robot_info"),
-            ("~/state_estimation_info_out", "~/state_estimation_info"),
-            ("~/control_info_out", "~/control_info"),
             ("~/collision_avoidance_info_out", "~/collision_avoidance_info"),
-            ("~/uav_info_out", "~/uav_info"),
-            ("~/system_health_info_out", "~/system_health_info"),
-            ("~/uav_state_out", "~/uav_state"),
+            ("~/control_info_out", "~/control_info"),
+            ("~/general_robot_info_out", "~/general_robot_info"),
             ("~/sensor_info_out", "~/sensor_info"),
+            ("~/state_estimation_info_out", "~/state_estimation_info"),
+            ("~/system_health_info_out", "~/system_health_info"),
+            ("~/uav_info_out", "~/uav_info"),
+            ("~/uav_state_out", "~/uav_state"),
             # subscribers
-            ("~/automatic_start_can_takeoff_in", "automatic_start/can_takeoff"),
             ("~/battery_state_in", "hw_api/battery_state"),
-            ("~/estimation_diagnostics_in", "estimation_manager/diagnostics"),
-            ("~/hw_api_gnss_in", "hw_api/gnss"),
-            ("~/hw_api_mag_heading_in", "hw_api/mag_heading"),
-            ("~/control_manager_heading_in", "control_manager/heading"),
             ("~/control_manager_diagnostics_in", "control_manager/diagnostics"),
+            ("~/control_manager_heading_in", "control_manager/heading"),
             ("~/control_manager_thrust_in", "control_manager/thrust"),
-            ("~/mpc_tracker_diagnostics_in", "control_manager/mpc_tracker/estimation_diagnostics_info"),
+            ("~/constraint_manager_diagnostics_in", "constraint_manager/diagnostics"),
+            ("~/estimation_diagnostics_in", "estimation_manager/diagnostics"),
+            ("~/gain_manager_diagnostics_in", "gain_manager/diagnostics"),
+            ("~/hw_api_capabilities_in", "hw_api/capabilities"),
+            ("~/hw_api_distance_sensor_in", "hw_api/distance_sensor"),
+            ("~/hw_api_gnss_in", "hw_api/gnss"),
+            ("~/hw_api_gnss_status_in", "hw_api/gnss_status"),
+            ("~/hw_api_imu_in", "hw_api/imu"),
+            ("~/hw_api_mag_heading_in", "hw_api/mag_heading"),
+            ("~/hw_api_rc_rssi_in", "hw_api/rc_rssi"),
             ("~/hw_api_status_in", "hw_api/status"),
-            ("~/uav_status_in", "uav_status_acquisition/uav_status"),
-            ("~/mass_nominal_in", "control_manager/mass_nominal"),
+            ("~/hw_api_odometry_in", "hw_api/odometry"),
+            ("~/estimator_uav_state_in", "estimation_manager/uav_state"),
+            ("~/safety_area_manager_diagnostics_in", "safety_area_manager/diagnostics"),
             ("~/mass_estimate_in", "control_manager/mass_estimate"),
-            ("~/hw_api_magnetic_field_in", "hw_api/magnetic_field"),
+            ("~/mass_nominal_in", "control_manager/mass_nominal"),
+            ("~/mpc_tracker_diagnostics_in", "control_manager/mpc_tracker/estimation_diagnostics_info"),
+            ("~/uav_status_in", "uav_status_acquisition/uav_status"),
 
             # Errorgraph topics
             ("~/errors_in", "errors"),
+            ("~/errors", "errors"),
             ("~/errors_out", "root_errors"),
         ],
     )
@@ -224,5 +234,43 @@ def generate_launch_description():
     ld.add_action(standalone_container)
 
     # #} end of own container
+
+    # #{ optional HTTP bridge for system health info
+
+    system_health_http_enabled = LaunchConfiguration('system_health_http_enabled')
+    ld.add_action(DeclareLaunchArgument(
+        'system_health_http_enabled',
+        default_value='false',
+        description='If true, start an ASGI server exposing system_health_info over HTTP.',
+    ))
+
+    system_health_http_host = LaunchConfiguration('system_health_http_host')
+    ld.add_action(DeclareLaunchArgument(
+        'system_health_http_host',
+        default_value='127.0.0.1',
+        description='Host/IP used by the ASGI HTTP bridge.',
+    ))
+
+    system_health_http_port = LaunchConfiguration('system_health_http_port')
+    ld.add_action(DeclareLaunchArgument(
+        'system_health_http_port',
+        default_value='8081',
+        description='Port used by the ASGI HTTP bridge.',
+    ))
+
+    system_health_http_server = ExecuteProcess(
+        cmd=[
+            'python3',
+            PathJoinSubstitution([this_pkg_path, 'scripts', 'system_health_http_server.py']),
+            '--robot-name', robot_name,
+            '--host', system_health_http_host,
+            '--port', system_health_http_port,
+        ],
+        output='screen',
+        condition=IfCondition(system_health_http_enabled),
+    )
+    ld.add_action(system_health_http_server)
+
+    # #} end of optional HTTP bridge
 
     return ld
