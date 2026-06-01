@@ -192,8 +192,8 @@ def generate_launch_description():
             ("~/safety_area_manager_diagnostics_in", "safety_area_manager/diagnostics"),
             ("~/mass_estimate_in", "control_manager/mass_estimate"),
             ("~/mass_nominal_in", "control_manager/mass_nominal"),
-            ("~/mpc_tracker_diagnostics_in", "control_manager/mpc_tracker/estimation_diagnostics_info"),
-            ("~/uav_status_in", "uav_status_acquisition/uav_status"),
+            ("~/mpc_tracker_diagnostics_in", "control_manager/mpc_tracker/diagnostics"),
+            ("~/tracker_cmd_in", "control_manager/tracker_cmd"),
 
             # Errorgraph topics
             ("~/errors_in", "errors"),
