@@ -10,7 +10,6 @@
 #define X_ENUM_BASE_TYPE uint8_t
 #define X_ENUM_SEQ (MULTIROTOR)(BOAT)
 
-
 namespace mrs_robot_diagnostics
 {
 

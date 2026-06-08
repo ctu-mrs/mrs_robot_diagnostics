@@ -26,7 +26,6 @@ StateMonitor::StateMonitor(rclcpp::NodeOptions options)
 void StateMonitor::initialize() {
   RCLCPP_INFO(node_->get_logger(), "Initializing...");
 
-
   /* load parameters */
   mrs_lib::ParamLoader param_loader(node_, "StateMonitor");
 
@@ -317,7 +316,7 @@ void StateMonitor::timerMain() {
     ph_control_info_.publish(last_control_info_);
   }
 
-  if (mpc_tracker_diagnostics.hasNewMessage) {
+  if (mpc_tracker_diagnostics.hasNewMessage || control_manager_diagnostics.hasNewMessage) {
     last_collision_avoidance_info_ = parse_collision_avoidance_info(mpc_tracker_diagnostics.message, control_manager_diagnostics.message);
     ph_collision_avoidance_info_.publish(last_collision_avoidance_info_);
   }
@@ -721,10 +720,14 @@ StateMonitor::parse_collision_avoidance_info(mrs_msgs::msg::MpcTrackerDiagnostic
   const bool is_mpc_tracker_diagnostics_valid     = mpc_tracker_diagnostics != nullptr;
   const bool is_control_manager_diagnostics_valid = control_manager_diagnostics != nullptr;
 
-  if (is_mpc_tracker_diagnostics_valid && is_control_manager_diagnostics_valid) {
-    msg.collision_avoidance_enabled = mpc_tracker_diagnostics->collision_avoidance_active || control_manager_diagnostics->bumper_active;
-    msg.avoiding_collision          = mpc_tracker_diagnostics->avoiding_collision || control_manager_diagnostics->bumper_active;
+  if (is_mpc_tracker_diagnostics_valid) {
+    msg.collision_avoidance_enabled = mpc_tracker_diagnostics->collision_avoidance_active;
+    msg.avoiding_collision          = mpc_tracker_diagnostics->avoiding_collision ;
     msg.other_robots_visible        = mpc_tracker_diagnostics->avoidance_active_uavs;
+  }
+
+  if (is_control_manager_diagnostics_valid) {
+    msg.bumper_active = control_manager_diagnostics->bumper_active;
   }
 
   return msg;

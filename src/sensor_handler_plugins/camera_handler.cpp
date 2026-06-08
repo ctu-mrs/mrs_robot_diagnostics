@@ -124,13 +124,17 @@ mrs_msgs::msg::SensorStatus CameraSensorHandler::updateStatus() {
 
   nlohmann::json camera_orientation_json;
   if (use_camera_gimbal_orientation_ && sh_camera_gimbal_orientation_.hasMsg()) {
-    auto orientation_msg    = sh_camera_gimbal_orientation_.getMsg();
+    const auto orientation_msg    = sh_camera_gimbal_orientation_.getMsg();
+    const double roll  = (orientation_msg->data.size() > 0) ? orientation_msg->data[0] : 0.0;
+    const double pitch = (orientation_msg->data.size() > 1) ? orientation_msg->data[1] : 0.0;
+    const double yaw   = (orientation_msg->data.size() > 2) ? orientation_msg->data[2] : 0.0;
+
     camera_orientation_json = {
         {"orientation_rpy",
          {
-             {"roll", orientation_msg->data[0]},
-             {"pitch", orientation_msg->data[1]},
-             {"yaw", orientation_msg->data[2]},
+             {"roll", roll},
+             {"pitch", pitch},
+             {"yaw", yaw},
          }},
     };
   }
