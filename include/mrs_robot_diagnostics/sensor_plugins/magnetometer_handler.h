@@ -8,7 +8,7 @@ namespace mrs_robot_diagnostics
 namespace magnetometer_handler
 {
 
-class MagnetometerHandler : public mrs_robot_diagnostics::SensorHandler {
+class MagnetometerSensorHandler : public mrs_robot_diagnostics::SensorHandler {
 public:
   bool onInitialize(rclcpp::Node::SharedPtr &node, const std::string &config_key, const std::string &name_space,
                     rclcpp::CallbackGroup::SharedPtr cbkgrp_subs = nullptr) override;

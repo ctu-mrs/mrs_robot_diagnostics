@@ -8,7 +8,7 @@ namespace mrs_robot_diagnostics
 namespace rc_handler
 {
 
-class RCHandler : public mrs_robot_diagnostics::SensorHandler {
+class RCSensorHandler : public mrs_robot_diagnostics::SensorHandler {
 public:
   bool onInitialize(rclcpp::Node::SharedPtr &node, const std::string &config_key, const std::string &name_space,
                     rclcpp::CallbackGroup::SharedPtr cbkgrp_subs = nullptr) override;

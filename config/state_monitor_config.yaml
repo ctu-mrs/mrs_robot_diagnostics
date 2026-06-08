@@ -16,6 +16,7 @@ robot_diagnostics:
         "GNSS",
         "Magnetometer",
         "RemoteController",
+        "SimulationCamera"
         # "LidarHandler",
         # "IMUHandler",
         # "BatteryHandler",
@@ -35,10 +36,14 @@ robot_diagnostics:
     # rate_tolerance: 0.3                      # 30% deviation allowed (default)
 
     # define "running" instances of plugins, there can be multiple instances of the same plugin
-    CameraHandler:
+    SimulationCamera:
       type: "Camera"
-      address: "mrs_robot_diagnostics/CameraHandler"
-      topic: "/servo_camera/"
+      address: "mrs_robot_diagnostics/CameraSensorHandler"
+      topic: "servo_camera/camera_info"
+      message_type: "sensor_msgs/msg/CameraInfo"
+      qos_reliability: "reliable"
+      expected_rate: 60.0
+      rate_tolerance: 0.3
 
     # Using generic handler
     PX4:
@@ -46,9 +51,9 @@ robot_diagnostics:
       address: "mrs_robot_diagnostics/GenericSensorHandler"
       topic: "hw_api/status"
       message_type: "mrs_msgs/msg/HwApiStatus"
-      qos_reliability: "reliable" # QoS reliability setting (default: "reliable")
-      expected_rate: 100.0 # Hz
-      rate_tolerance: 0.3 # 30% deviation allowed (default)
+      qos_reliability: "reliable"
+      expected_rate: 100.0
+      rate_tolerance: 0.3
 
     Rangefinder:
       type: "Rangefinder"
@@ -70,7 +75,7 @@ robot_diagnostics:
 
     Magnetometer:
       type: "Magnetometer"
-      address: "mrs_robot_diagnostics/MagnetometerHandler"
+      address: "mrs_robot_diagnostics/MagnetometerSensorHandler"
       topic: "hw_api/magnetic_field"
       qos_reliability: "reliable"
       expected_rate: 50.0
@@ -78,7 +83,7 @@ robot_diagnostics:
 
     RemoteController:
       type: "RemoteController"
-      address: "mrs_robot_diagnostics/RCHandler"
+      address: "mrs_robot_diagnostics/RCSensorHandler"
       topic: "hw_api/rc_rssi"
       qos_reliability: "reliable"
       expected_rate: 10.0

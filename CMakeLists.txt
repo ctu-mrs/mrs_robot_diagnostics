@@ -39,6 +39,7 @@ set(DEPENDENCIES
   tf2_ros
   pluginlib
   diagnostic_msgs
+  nlohmann_json
 )
 
 set(LIBRARIES
@@ -70,13 +71,13 @@ set_target_properties(MrsRobotDiagnostics_MrsRobotDiagnostics
 target_sources(MrsRobotDiagnostics_MrsRobotDiagnostics
   PUBLIC FILE_SET HEADERS BASE_DIRS "include"
   FILES
+    "include/mrs_robot_diagnostics/create_main_subscriber.tpp"
+    "include/mrs_robot_diagnostics/enums/enum_helpers.h"
+    "include/mrs_robot_diagnostics/enums/enum_macros.h"
     "include/mrs_robot_diagnostics/enums/robot_type.h"
     "include/mrs_robot_diagnostics/enums/tracker_state.h"
     "include/mrs_robot_diagnostics/enums/uav_state.h"
-    "include/mrs_robot_diagnostics/enums/enum_helpers.h"
-    "include/mrs_robot_diagnostics/enums/enum_macros.h"
     "include/mrs_robot_diagnostics/sensor_handler.h"  
-    "include/mrs_robot_diagnostics/create_main_subscriber.tpp"
 )
 
 target_link_libraries(MrsRobotDiagnostics_MrsRobotDiagnostics
@@ -97,22 +98,22 @@ target_link_libraries(MrsRobotDiagnostics_MrsRobotDiagnostics
 ## | ------------ MrsRobotDiagnostics_StateMonitor ------------ |
 
 add_library(MrsRobotDiagnostics_StateMonitor SHARED
-  src/state_monitor.cpp
   src/preflight_checker.cpp
+  src/state_monitor.cpp
   src/utils/flight_timer.cpp
-  src/utils/wh_drained_integrator.cpp
   src/utils/host_stats.cpp
+  src/utils/wh_drained_integrator.cpp
 )
 
 target_sources(MrsRobotDiagnostics_StateMonitor
   PUBLIC FILE_SET HEADERS BASE_DIRS "include"
   FILES
-    "include/mrs_robot_diagnostics/state_monitor.h"
     "include/mrs_robot_diagnostics/preflight_checker.h"
-    "include/mrs_robot_diagnostics/utils/rate_tracker.h"
+    "include/mrs_robot_diagnostics/state_monitor.h"
     "include/mrs_robot_diagnostics/utils/flight_timer.h"
-    "include/mrs_robot_diagnostics/utils/wh_drained_integrator.h"
     "include/mrs_robot_diagnostics/utils/host_stats.h"
+    "include/mrs_robot_diagnostics/utils/rate_tracker.h"
+    "include/mrs_robot_diagnostics/utils/wh_drained_integrator.h"
 )
 
 target_link_libraries(MrsRobotDiagnostics_StateMonitor
@@ -124,40 +125,23 @@ rclcpp_components_register_nodes(MrsRobotDiagnostics_StateMonitor "mrs_robot_dia
 
 target_compile_definitions(MrsRobotDiagnostics_StateMonitor PRIVATE USE_ROS_TIMER=${USE_ROS_TIMER})
 
-# ## | ----------- MrsRobotDiagnostics_CameraHandler ------------ |
-#
-# add_library(MrsRobotDiagnostics_CameraHandler SHARED
-#   src/sensor_handler_plugins/camera_handler.cpp
-# )
-#
-# target_sources(MrsRobotDiagnostics_CameraHandler
-#   PUBLIC FILE_SET HEADERS BASE_DIRS "include"
-#   FILES
-#     "include/mrs_robot_diagnostics/sensor_plugins/camera_handler.h"
-# )
-#
-# target_link_libraries(MrsRobotDiagnostics_CameraHandler
-#   PRIVATE
-#     mrs_robot_diagnostics::mrs_robot_diagnostics 
-# )
-#
-# target_compile_definitions(MrsRobotDiagnostics_CameraHandler PRIVATE USE_ROS_TIMER=${USE_ROS_TIMER})
-
 ## | -------------- MrsRobotDiagnostics_SensorPlugins --------------- |
 
 add_library(MrsRobotDiagnostics_SensorPlugins SHARED
+  src/sensor_handler_plugins/camera_handler.cpp
+  src/sensor_handler_plugins/generic_handler.cpp
   src/sensor_handler_plugins/gnss_handler.cpp
   src/sensor_handler_plugins/magnetometer_handler.cpp
-  src/sensor_handler_plugins/generic_handler.cpp
   src/sensor_handler_plugins/remote_controller.cpp
 )
 
 target_sources(MrsRobotDiagnostics_SensorPlugins
   PUBLIC FILE_SET HEADERS BASE_DIRS "include"
   FILES
+    "include/mrs_robot_diagnostics/sensor_plugins/camera_handler.h"
+    "include/mrs_robot_diagnostics/sensor_plugins/generic_handler.h"
     "include/mrs_robot_diagnostics/sensor_plugins/gnss_handler.h"
     "include/mrs_robot_diagnostics/sensor_plugins/magnetometer_handler.h"
-    "include/mrs_robot_diagnostics/sensor_plugins/generic_handler.h"
     "include/mrs_robot_diagnostics/sensor_plugins/remote_controller.h"
 )
 

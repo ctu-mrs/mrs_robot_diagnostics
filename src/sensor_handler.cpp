@@ -178,7 +178,7 @@ uint8_t SensorHandler::mapSensorType(const std::string &type_str) {
   static const std::unordered_map<std::string, uint8_t> type_map = {
       {"Autopilot", mrs_msgs::msg::SensorStatus::TYPE_AUTOPILOT},
       {"Rangefinder", mrs_msgs::msg::SensorStatus::TYPE_RANGEFINDER},
-      {"GPS", mrs_msgs::msg::SensorStatus::TYPE_GPS},
+      {"GNSS", mrs_msgs::msg::SensorStatus::TYPE_GNSS},
       {"IMU", mrs_msgs::msg::SensorStatus::TYPE_IMU},
       {"Barometer", mrs_msgs::msg::SensorStatus::TYPE_BAROMETER},
       {"Magnetometer", mrs_msgs::msg::SensorStatus::TYPE_MAGNETOMETER},

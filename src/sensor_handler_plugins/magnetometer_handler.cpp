@@ -5,16 +5,16 @@ namespace mrs_robot_diagnostics
 namespace magnetometer_handler
 {
 
-bool MagnetometerHandler::onInitialize(rclcpp::Node::SharedPtr &node, [[maybe_unused]] const std::string &config_key,
+bool MagnetometerSensorHandler::onInitialize(rclcpp::Node::SharedPtr &node, [[maybe_unused]] const std::string &config_key,
                                        [[maybe_unused]] const std::string &name_space, [[maybe_unused]] rclcpp::CallbackGroup::SharedPtr cbkgrp_subs) {
 
-  RCLCPP_INFO(node->get_logger(), "[MagnetometerHandler] Initializing '%s', topic: '%s'", name_.c_str(), topic_.c_str());
+  RCLCPP_INFO(node->get_logger(), "[MagnetometerSensorHandler] Initializing '%s', topic: '%s'", name_.c_str(), topic_.c_str());
 
   sh_magnetic_field_ = create_main_subscriber<sensor_msgs::msg::MagneticField>(node, topic_, cbkgrp_subs);
   return true;
 }
 
-std::vector<diagnostic_msgs::msg::KeyValue> MagnetometerHandler::fill_details() {
+std::vector<diagnostic_msgs::msg::KeyValue> MagnetometerSensorHandler::fill_details() {
 
   std::vector<diagnostic_msgs::msg::KeyValue> details;
 
@@ -65,4 +65,4 @@ std::vector<diagnostic_msgs::msg::KeyValue> MagnetometerHandler::fill_details() 
 } // namespace mrs_robot_diagnostics
 
 #include <pluginlib/class_list_macros.hpp>
-PLUGINLIB_EXPORT_CLASS(mrs_robot_diagnostics::magnetometer_handler::MagnetometerHandler, mrs_robot_diagnostics::SensorHandler)
+PLUGINLIB_EXPORT_CLASS(mrs_robot_diagnostics::magnetometer_handler::MagnetometerSensorHandler, mrs_robot_diagnostics::SensorHandler)
