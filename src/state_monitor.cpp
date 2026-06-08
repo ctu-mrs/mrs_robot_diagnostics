@@ -274,21 +274,22 @@ void StateMonitor::timerMain() {
     return;
   }
   std::scoped_lock lck(uav_state_mutex_);
-  const auto       now                            = clock_->now();
-  const auto       battery_state                  = processIncomingMessage(sh_battery_state_);
-  const auto       control_manager_diagnostics    = processIncomingMessage(sh_control_manager_diagnostics_);
-  const auto       control_manager_heading        = processIncomingMessage(sh_control_manager_heading_);
-  const auto       control_manager_thrust         = processIncomingMessage(sh_control_manager_thrust_);
-  const auto       constraint_manager_diagnostics = processIncomingMessage(sh_constraint_manager_diagnostics_);
-  const auto       gain_manager_diagnostics       = processIncomingMessage(sh_gain_manager_diagnostics_);
-  const auto       estimation_diagnostics         = processIncomingMessage(sh_estimation_diagnostics_);
-  const auto       hw_api_gnss                    = processIncomingMessage(sh_hw_api_gnss_);
-  const auto       hw_api_mag_heading             = processIncomingMessage(sh_hw_api_mag_heading_);
-  const auto       hw_api_status                  = processIncomingMessage(sh_hw_api_status_);
-  const auto       mass_estimate                  = processIncomingMessage(sh_mass_estimate_);
-  const auto       mass_nominal                   = processIncomingMessage(sh_mass_nominal_);
-  const auto       mpc_tracker_diagnostics        = processIncomingMessage(sh_mpc_tracker_diagnostics_);
-  const auto       tracker_cmd                    = processIncomingMessage(sh_tracker_cmd_);
+
+  const auto now                            = clock_->now();
+  const auto battery_state                  = processIncomingMessage(sh_battery_state_);
+  const auto control_manager_diagnostics    = processIncomingMessage(sh_control_manager_diagnostics_);
+  const auto control_manager_heading        = processIncomingMessage(sh_control_manager_heading_);
+  const auto control_manager_thrust         = processIncomingMessage(sh_control_manager_thrust_);
+  const auto constraint_manager_diagnostics = processIncomingMessage(sh_constraint_manager_diagnostics_);
+  const auto gain_manager_diagnostics       = processIncomingMessage(sh_gain_manager_diagnostics_);
+  const auto estimation_diagnostics         = processIncomingMessage(sh_estimation_diagnostics_);
+  const auto hw_api_gnss                    = processIncomingMessage(sh_hw_api_gnss_);
+  const auto hw_api_mag_heading             = processIncomingMessage(sh_hw_api_mag_heading_);
+  const auto hw_api_status                  = processIncomingMessage(sh_hw_api_status_);
+  const auto mass_estimate                  = processIncomingMessage(sh_mass_estimate_);
+  const auto mass_nominal                   = processIncomingMessage(sh_mass_nominal_);
+  const auto mpc_tracker_diagnostics        = processIncomingMessage(sh_mpc_tracker_diagnostics_);
+  const auto tracker_cmd                    = processIncomingMessage(sh_tracker_cmd_);
 
   // Watt-hour integration on each new battery sample.
   if (battery_state.hasNewMessage && battery_state.message != nullptr)
@@ -300,34 +301,33 @@ void StateMonitor::timerMain() {
     flight_timer_->tick(null_tracker);
   }
 
-  // | ------------- per-topic coalesced publishing ------------- |
-  // Republish a topic only when fresh input arrived since the last tick.
-
+  // Process fresh input arrived since the last tick.
   if (estimation_diagnostics.hasNewMessage || control_manager_heading.hasNewMessage || hw_api_gnss.hasNewMessage || hw_api_mag_heading.hasNewMessage) {
     last_state_estimation_info_ =
         parse_state_estimation_info(estimation_diagnostics.message, control_manager_heading.message, hw_api_gnss.message, hw_api_mag_heading.message);
-    ph_state_estimation_info_.publish(last_state_estimation_info_);
   }
 
   if (control_manager_diagnostics.hasNewMessage || control_manager_thrust.hasNewMessage || constraint_manager_diagnostics.hasNewMessage ||
       gain_manager_diagnostics.hasNewMessage || tracker_cmd.hasNewMessage) {
     last_control_info_ = parse_control_info(control_manager_diagnostics.message, constraint_manager_diagnostics.message, gain_manager_diagnostics.message,
                                             control_manager_thrust.message, tracker_cmd.message);
-    ph_control_info_.publish(last_control_info_);
   }
 
   if (mpc_tracker_diagnostics.hasNewMessage || control_manager_diagnostics.hasNewMessage) {
     last_collision_avoidance_info_ = parse_collision_avoidance_info(mpc_tracker_diagnostics.message, control_manager_diagnostics.message);
-    ph_collision_avoidance_info_.publish(last_collision_avoidance_info_);
   }
 
   if (hw_api_status.hasNewMessage || mass_nominal.hasNewMessage || mass_estimate.hasNewMessage) {
     last_uav_info_ = parse_uav_info(hw_api_status.message, mass_nominal.message, mass_estimate.message);
-    ph_uav_info_.publish(last_uav_info_);
   }
 
-  // | --------------- heartbeat topics (every tick) -------------- |
-  // These carry data that changes without a triggering message
+  // Publish data
+  last_state_estimation_info_.header.stamp = now;
+  ph_state_estimation_info_.publish(last_state_estimation_info_);
+  ph_control_info_.publish(last_control_info_);
+  ph_collision_avoidance_info_.publish(last_collision_avoidance_info_);
+  ph_uav_info_.publish(last_uav_info_);
+
   last_general_robot_info_ = parse_general_robot_info(battery_state.message);
   ph_general_robot_info_.publish(last_general_robot_info_);
 
@@ -339,7 +339,6 @@ void StateMonitor::timerMain() {
   uav_state_msg.stamp = now;
   uav_state_msg.state = to_ros(uav_state_.value());
   ph_uav_state_.publish(uav_state_msg);
-
 
   // to avoid getting timeout warnings on this latched message
   if (sh_mass_nominal_.hasMsg())
