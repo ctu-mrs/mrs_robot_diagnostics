@@ -722,7 +722,7 @@ StateMonitor::parse_collision_avoidance_info(mrs_msgs::msg::MpcTrackerDiagnostic
 
   if (is_mpc_tracker_diagnostics_valid) {
     msg.collision_avoidance_enabled = mpc_tracker_diagnostics->collision_avoidance_active;
-    msg.avoiding_collision          = mpc_tracker_diagnostics->avoiding_collision ;
+    msg.avoiding_collision          = mpc_tracker_diagnostics->avoiding_collision;
     msg.other_robots_visible        = mpc_tracker_diagnostics->avoidance_active_uavs;
   }
 
