@@ -72,12 +72,12 @@ target_sources(MrsRobotDiagnostics_MrsRobotDiagnostics
   PUBLIC FILE_SET HEADERS BASE_DIRS "include"
   FILES
     "include/mrs_robot_diagnostics/create_main_subscriber.tpp"
-    "include/mrs_robot_diagnostics/enums/enum_helpers.h"
-    "include/mrs_robot_diagnostics/enums/enum_macros.h"
-    "include/mrs_robot_diagnostics/enums/robot_type.h"
-    "include/mrs_robot_diagnostics/enums/tracker_state.h"
-    "include/mrs_robot_diagnostics/enums/uav_state.h"
-    "include/mrs_robot_diagnostics/sensor_handler.h"  
+    "include/mrs_robot_diagnostics/enums/helpers/enum_helpers.hpp"
+    "include/mrs_robot_diagnostics/enums/helpers/enum_macros.hpp"
+    "include/mrs_robot_diagnostics/enums/robot_type.hpp"
+    "include/mrs_robot_diagnostics/enums/tracker_state.hpp"
+    "include/mrs_robot_diagnostics/enums/uav_state.hpp"
+    "include/mrs_robot_diagnostics/sensor_handler.hpp"
 )
 
 target_link_libraries(MrsRobotDiagnostics_MrsRobotDiagnostics
@@ -108,12 +108,12 @@ add_library(MrsRobotDiagnostics_StateMonitor SHARED
 target_sources(MrsRobotDiagnostics_StateMonitor
   PUBLIC FILE_SET HEADERS BASE_DIRS "include"
   FILES
-    "include/mrs_robot_diagnostics/preflight_checker.h"
-    "include/mrs_robot_diagnostics/state_monitor.h"
-    "include/mrs_robot_diagnostics/utils/flight_timer.h"
-    "include/mrs_robot_diagnostics/utils/host_stats.h"
-    "include/mrs_robot_diagnostics/utils/rate_tracker.h"
-    "include/mrs_robot_diagnostics/utils/wh_drained_integrator.h"
+    "include/mrs_robot_diagnostics/preflight_checker.hpp"
+    "include/mrs_robot_diagnostics/state_monitor.hpp"
+    "include/mrs_robot_diagnostics/utils/flight_timer.hpp"
+    "include/mrs_robot_diagnostics/utils/host_stats.hpp"
+    "include/mrs_robot_diagnostics/utils/rate_tracker.hpp"
+    "include/mrs_robot_diagnostics/utils/wh_drained_integrator.hpp"
 )
 
 target_link_libraries(MrsRobotDiagnostics_StateMonitor
@@ -138,11 +138,11 @@ add_library(MrsRobotDiagnostics_SensorPlugins SHARED
 target_sources(MrsRobotDiagnostics_SensorPlugins
   PUBLIC FILE_SET HEADERS BASE_DIRS "include"
   FILES
-    "include/mrs_robot_diagnostics/sensor_plugins/camera_handler.h"
-    "include/mrs_robot_diagnostics/sensor_plugins/generic_handler.h"
-    "include/mrs_robot_diagnostics/sensor_plugins/gnss_handler.h"
-    "include/mrs_robot_diagnostics/sensor_plugins/magnetometer_handler.h"
-    "include/mrs_robot_diagnostics/sensor_plugins/remote_controller.h"
+    "include/mrs_robot_diagnostics/sensor_plugins/camera_handler.hpp"
+    "include/mrs_robot_diagnostics/sensor_plugins/generic_handler.hpp"
+    "include/mrs_robot_diagnostics/sensor_plugins/gnss_handler.hpp"
+    "include/mrs_robot_diagnostics/sensor_plugins/magnetometer_handler.hpp"
+    "include/mrs_robot_diagnostics/sensor_plugins/remote_controller.hpp"
 )
 
 target_link_libraries(MrsRobotDiagnostics_SensorPlugins

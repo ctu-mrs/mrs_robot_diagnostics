@@ -1,4 +1,4 @@
-#include <mrs_robot_diagnostics/sensor_plugins/remote_controller.h>
+#include <mrs_robot_diagnostics/sensor_plugins/remote_controller.hpp>
 
 namespace mrs_robot_diagnostics
 {

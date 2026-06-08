@@ -1,4 +1,4 @@
-#include <mrs_robot_diagnostics/sensor_handler.h>
+#include <mrs_robot_diagnostics/sensor_handler.hpp>
 #include <unordered_map>
 
 namespace mrs_robot_diagnostics

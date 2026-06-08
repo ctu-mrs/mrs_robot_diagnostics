@@ -1,10 +1,4 @@
-#include <mrs_robot_diagnostics/state_monitor.h>
-
-#include <netdb.h>
-#include <sys/socket.h>
-#include <arpa/inet.h>
-#include <cstring>
-#include <sstream>
+#include <mrs_robot_diagnostics/state_monitor.hpp>
 
 namespace mrs_robot_diagnostics
 {

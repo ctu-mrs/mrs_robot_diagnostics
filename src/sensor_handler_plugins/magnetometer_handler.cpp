@@ -1,4 +1,4 @@
-#include <mrs_robot_diagnostics/sensor_plugins/magnetometer_handler.h>
+#include <mrs_robot_diagnostics/sensor_plugins/magnetometer_handler.hpp>
 
 namespace mrs_robot_diagnostics
 {
