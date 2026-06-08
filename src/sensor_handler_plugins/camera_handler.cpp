@@ -113,7 +113,7 @@ mrs_msgs::msg::SensorStatus CameraSensorHandler::updateStatus() {
       };
     }
     catch (tf2::TransformException &ex) {
-      RCLCPP_WARN(rclcpp::get_logger("CameSensorraHandler"), "%s", ex.what());
+      RCLCPP_WARN(rclcpp::get_logger("CameraSensorHandler"), "%s", ex.what());
     }
 
   } else {
