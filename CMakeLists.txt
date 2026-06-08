@@ -146,7 +146,7 @@ target_compile_definitions(MrsRobotDiagnostics_StateMonitor PRIVATE USE_ROS_TIME
 ## | -------------- MrsRobotDiagnostics_SensorPlugins --------------- |
 
 add_library(MrsRobotDiagnostics_SensorPlugins SHARED
-  src/sensor_handler_plugins/gps_handler.cpp
+  src/sensor_handler_plugins/gnss_handler.cpp
   src/sensor_handler_plugins/magnetometer_handler.cpp
   src/sensor_handler_plugins/generic_handler.cpp
   src/sensor_handler_plugins/remote_controller.cpp
@@ -155,7 +155,7 @@ add_library(MrsRobotDiagnostics_SensorPlugins SHARED
 target_sources(MrsRobotDiagnostics_SensorPlugins
   PUBLIC FILE_SET HEADERS BASE_DIRS "include"
   FILES
-    "include/mrs_robot_diagnostics/sensor_plugins/gps_handler.h"
+    "include/mrs_robot_diagnostics/sensor_plugins/gnss_handler.h"
     "include/mrs_robot_diagnostics/sensor_plugins/magnetometer_handler.h"
     "include/mrs_robot_diagnostics/sensor_plugins/generic_handler.h"
     "include/mrs_robot_diagnostics/sensor_plugins/remote_controller.h"

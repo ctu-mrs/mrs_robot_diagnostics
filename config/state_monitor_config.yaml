@@ -13,7 +13,7 @@ robot_diagnostics:
         # Example sensor handlers
         "PX4",
         "Rangefinder",
-        "GPS",
+        "GNSS",
         "Magnetometer",
         "RemoteController",
         # "LidarHandler",
@@ -23,7 +23,7 @@ robot_diagnostics:
       ]
 
     # ExampleHandler:
-    # type: "Example" # Example, Autopilot, Camera, Lidar, IMU, GPS, Battery, Barometer, Magnetometer, RangeFinder
+    # type: "Example" # Example, Autopilot, Camera, Lidar, IMU, GNSS, Battery, Barometer, Magnetometer, RangeFinder
     # address: "mrs_robot_diagnostics/ExampleHandler"
     # topic: "example_node/topic" # Don't add the leading slash, the name will be resolved relative to the node's namespace
     # expected_publisher:
@@ -59,10 +59,11 @@ robot_diagnostics:
       expected_rate: 100.0
       rate_tolerance: 0.3
 
-    GPS:
-      type: "GPS"
-      address: "mrs_robot_diagnostics/GPSHandler"
+    GNSS:
+      type: "GNSS"
+      address: "mrs_robot_diagnostics/GNSSSensorHandler"
       topic: "hw_api/gnss"
+      status_topic: "hw_api/gnss_status"
       qos_reliability: "reliable"
       expected_rate: 50.0
       rate_tolerance: 0.3
