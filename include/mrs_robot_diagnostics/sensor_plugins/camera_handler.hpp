@@ -1,3 +1,5 @@
+#pragma once
+
 #include <mrs_robot_diagnostics/sensor_handler.hpp>
 
 #include <sensor_msgs/msg/camera_info.hpp>
