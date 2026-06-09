@@ -25,7 +25,6 @@
 #include <mrs_msgs/msg/errorgraph_element_array.hpp>
 #include <mrs_msgs/msg/estimation_diagnostics.hpp>
 #include <mrs_msgs/msg/float64_stamped.hpp>
-#include <mrs_msgs/msg/control_manager_diagnostics.hpp>
 #include <mrs_msgs/msg/constraint_manager_diagnostics.hpp>
 #include <mrs_msgs/msg/gain_manager_diagnostics.hpp>
 #include <mrs_msgs/msg/general_robot_info.hpp>
@@ -63,23 +62,29 @@
 #include <mrs_lib/service_server_handler.h>
 #include <mrs_lib/subscriber_handler.h>
 
-#include <mrs_robot_diagnostics/enums/enum_helpers.h>
-#include <mrs_robot_diagnostics/enums/robot_type.h>
-#include <mrs_robot_diagnostics/enums/tracker_state.h>
-#include <mrs_robot_diagnostics/enums/uav_state.h>
+#include <mrs_robot_diagnostics/enums/helpers/enum_helpers.hpp>
+#include <mrs_robot_diagnostics/enums/robot_type.hpp>
+#include <mrs_robot_diagnostics/enums/tracker_state.hpp>
+#include <mrs_robot_diagnostics/enums/uav_state.hpp>
 
-#include <mrs_robot_diagnostics/sensor_handler.h>
-#include <mrs_robot_diagnostics/preflight_checker.h>
+#include <mrs_robot_diagnostics/sensor_handler.hpp>
+#include <mrs_robot_diagnostics/preflight_checker.hpp>
 
-#include <mrs_robot_diagnostics/utils/flight_timer.h>
-#include <mrs_robot_diagnostics/utils/host_stats.h>
-#include <mrs_robot_diagnostics/utils/rate_tracker.h>
-#include <mrs_robot_diagnostics/utils/wh_drained_integrator.h>
+#include <mrs_robot_diagnostics/utils/flight_timer.hpp>
+#include <mrs_robot_diagnostics/utils/host_stats.hpp>
+#include <mrs_robot_diagnostics/utils/rate_tracker.hpp>
+#include <mrs_robot_diagnostics/utils/wh_drained_integrator.hpp>
 
 #include <memory>
 #include <mutex>
 #include <string>
 #include <vector>
+#include <sstream>
+#include <cstring>
+
+#include <netdb.h>
+#include <sys/socket.h>
+#include <arpa/inet.h>
 
 namespace mrs_robot_diagnostics
 {

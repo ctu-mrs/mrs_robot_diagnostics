@@ -27,6 +27,8 @@ def generate_launch_description():
 
     this_pkg_path = get_package_share_directory(pkg_name)
     namespace = 'state_monitor'
+    
+    # #{ parameters loading and definitions
 
     # #{ uav_name
 
@@ -133,6 +135,81 @@ def generate_launch_description():
 
     # #} end of log_level
 
+    # #} end of parameters loading and definitions
+
+    # #{ node parameters and remappings
+    
+    state_monitor_parameters = [
+        # StateMonitor core parameters
+        {"available_sensors": available_sensors},
+        {"custom_config": custom_config},
+        {"robot_name": robot_name},
+        {"robot_type": robot_type},
+        {"uav_type": uav_type},
+        {"use_sim_time": use_sim_time},
+        {'config': this_pkg_path + '/config/state_monitor_config.yaml'},
+    ]
+
+    preflight_checker_parameters = [
+        # PreflightChecker parameters
+        {'preflight_check_config': this_pkg_path + '/config/preflight_check_config.yaml'},
+    ]
+
+    node_parameters = (
+        state_monitor_parameters
+        + preflight_checker_parameters
+    )
+
+    state_monitor_remappings = [
+        # StateMonitor publishers
+        ("~/collision_avoidance_info_out", "~/collision_avoidance_info"),
+        ("~/control_info_out", "~/control_info"),
+        ("~/general_robot_info_out", "~/general_robot_info"),
+        ("~/state_estimation_info_out", "~/state_estimation_info"),
+        ("~/system_health_info_out", "~/system_health_info"),
+        ("~/uav_info_out", "~/uav_info"),
+        ("~/uav_state_out", "~/uav_state"),
+
+        # StateMonitor subscribers
+        ("~/battery_state_in", "hw_api/battery_state"),
+        ("~/control_manager_diagnostics_in", "control_manager/diagnostics"),
+        ("~/control_manager_heading_in", "control_manager/heading"),
+        ("~/control_manager_thrust_in", "control_manager/thrust"),
+        ("~/constraint_manager_diagnostics_in", "constraint_manager/diagnostics"),
+        ("~/estimation_diagnostics_in", "estimation_manager/diagnostics"),
+        ("~/gain_manager_diagnostics_in", "gain_manager/diagnostics"),
+        ("~/hw_api_gnss_in", "hw_api/gnss"),
+        ("~/hw_api_mag_heading_in", "hw_api/mag_heading"),
+        ("~/hw_api_rc_rssi_in", "hw_api/rc_rssi"),
+        ("~/hw_api_status_in", "hw_api/status"),
+        ("~/hw_api_odometry_in", "hw_api/odometry"),
+        ("~/estimator_uav_state_in", "estimation_manager/uav_state"),
+        ("~/mass_estimate_in", "control_manager/mass_estimate"),
+        ("~/mass_nominal_in", "control_manager/mass_nominal"),
+        ("~/mpc_tracker_diagnostics_in", "control_manager/mpc_tracker/diagnostics"),
+        ("~/tracker_cmd_in", "control_manager/tracker_cmd"),
+
+        # StateMonitor errorgraph publishers and subscribers
+        ("~/errors_in", "errors"),
+        ("~/errors_out", "root_errors"),
+        ("~/errors", "errors"),
+    ]
+
+    preflight_checker_remappings = [
+        # PreflightChecker subscribers
+        ("~/hw_api_capabilities_in", "hw_api/capabilities"),
+        ("~/hw_api_distance_sensor_in", "hw_api/distance_sensor"),
+        ("~/hw_api_imu_in", "hw_api/imu"),
+        ("~/safety_area_manager_diagnostics_in", "safety_area_manager/diagnostics"),
+    ]
+
+    node_remappings = (
+        state_monitor_remappings
+        + preflight_checker_remappings
+    )
+    
+    # #} end of node parameters and remappings
+
     # #{ state monitor node
 
     state_monitor_node = ComposableNode(
@@ -141,65 +218,8 @@ def generate_launch_description():
         plugin='mrs_robot_diagnostics::state_monitor::StateMonitor',
         namespace=robot_name,
         name='state_monitor',
-
-        parameters=[
-            {"available_sensors": available_sensors},
-            {"custom_config": custom_config},
-            {"robot_name": robot_name},
-            {"robot_type": robot_type},
-            {"uav_type": uav_type},
-            {"use_sim_time": use_sim_time},
-            {'config': this_pkg_path + '/config/state_monitor_config.yaml'},
-            {'preflight_check_config': this_pkg_path + '/config/preflight_check_config.yaml'},
-            # additional parameters for camera plugin
-            {'camera_frame': [robot_name, '/servo_camera/camera_frame']},
-            {'camera_info_topic': [robot_name, '/servo_camera/camera_info']},
-            {'camera_orientation_topic': [robot_name, '/servo_camera/orientation']},
-            {'fcu_frame': [robot_name, '/fcu']},
-            {'image_topic': [robot_name, '/servo_camera/image_raw']},
-            {'optical_frame': [robot_name, '/servo_camera/optical_frame']},
-        ],
-
-        remappings=[
-
-            # publishers
-            ("~/collision_avoidance_info_out", "~/collision_avoidance_info"),
-            ("~/control_info_out", "~/control_info"),
-            ("~/general_robot_info_out", "~/general_robot_info"),
-            ("~/sensor_info_out", "~/sensor_info"),
-            ("~/state_estimation_info_out", "~/state_estimation_info"),
-            ("~/system_health_info_out", "~/system_health_info"),
-            ("~/uav_info_out", "~/uav_info"),
-            ("~/uav_state_out", "~/uav_state"),
-            # subscribers
-            ("~/battery_state_in", "hw_api/battery_state"),
-            ("~/control_manager_diagnostics_in", "control_manager/diagnostics"),
-            ("~/control_manager_heading_in", "control_manager/heading"),
-            ("~/control_manager_thrust_in", "control_manager/thrust"),
-            ("~/constraint_manager_diagnostics_in", "constraint_manager/diagnostics"),
-            ("~/estimation_diagnostics_in", "estimation_manager/diagnostics"),
-            ("~/gain_manager_diagnostics_in", "gain_manager/diagnostics"),
-            ("~/hw_api_capabilities_in", "hw_api/capabilities"),
-            ("~/hw_api_distance_sensor_in", "hw_api/distance_sensor"),
-            ("~/hw_api_gnss_in", "hw_api/gnss"),
-            ("~/hw_api_gnss_status_in", "hw_api/gnss_status"),
-            ("~/hw_api_imu_in", "hw_api/imu"),
-            ("~/hw_api_mag_heading_in", "hw_api/mag_heading"),
-            ("~/hw_api_rc_rssi_in", "hw_api/rc_rssi"),
-            ("~/hw_api_status_in", "hw_api/status"),
-            ("~/hw_api_odometry_in", "hw_api/odometry"),
-            ("~/estimator_uav_state_in", "estimation_manager/uav_state"),
-            ("~/safety_area_manager_diagnostics_in", "safety_area_manager/diagnostics"),
-            ("~/mass_estimate_in", "control_manager/mass_estimate"),
-            ("~/mass_nominal_in", "control_manager/mass_nominal"),
-            ("~/mpc_tracker_diagnostics_in", "control_manager/mpc_tracker/estimation_diagnostics_info"),
-            ("~/uav_status_in", "uav_status_acquisition/uav_status"),
-
-            # Errorgraph topics
-            ("~/errors_in", "errors"),
-            ("~/errors", "errors"),
-            ("~/errors_out", "root_errors"),
-        ],
+        parameters=node_parameters,
+        remappings=node_remappings,
     )
 
     load_into_existing = LoadComposableNodes(

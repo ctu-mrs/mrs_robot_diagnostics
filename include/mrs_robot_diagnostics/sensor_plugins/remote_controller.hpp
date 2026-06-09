@@ -1,14 +1,14 @@
 #pragma once
 
-#include <mrs_robot_diagnostics/sensor_handler.h>
-#include <sensor_msgs/msg/magnetic_field.hpp>
+#include <mrs_robot_diagnostics/sensor_handler.hpp>
+#include <mrs_msgs/msg/hw_api_rc_rssi.hpp>
 
 namespace mrs_robot_diagnostics
 {
-namespace magnetometer_handler
+namespace rc_handler
 {
 
-class MagnetometerHandler : public mrs_robot_diagnostics::SensorHandler {
+class RCSensorHandler : public mrs_robot_diagnostics::SensorHandler {
 public:
   bool onInitialize(rclcpp::Node::SharedPtr &node, const std::string &config_key, const std::string &name_space,
                     rclcpp::CallbackGroup::SharedPtr cbkgrp_subs = nullptr) override;
@@ -16,8 +16,8 @@ public:
   std::vector<diagnostic_msgs::msg::KeyValue> fill_details() override;
 
 private:
-  mrs_lib::SubscriberHandler<sensor_msgs::msg::MagneticField> sh_magnetic_field_;
+  mrs_lib::SubscriberHandler<mrs_msgs::msg::HwApiRcRssi> sh_rc_rssi_;
 };
 
-} // namespace magnetometer_handler
+} // namespace rc_handler
 } // namespace mrs_robot_diagnostics

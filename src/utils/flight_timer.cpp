@@ -1,8 +1,4 @@
-#include <mrs_robot_diagnostics/utils/flight_timer.h>
-
-#include <filesystem>
-#include <fstream>
-#include <stdexcept>
+#include <mrs_robot_diagnostics/utils/flight_timer.hpp>
 
 namespace mrs_robot_diagnostics::utils
 {

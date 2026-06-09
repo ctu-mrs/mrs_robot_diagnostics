@@ -1,7 +1,7 @@
 #pragma once
 
 #include <mrs_lib/param_loader.h>
-#include <mrs_robot_diagnostics/sensor_handler.h>
+#include <mrs_robot_diagnostics/sensor_handler.hpp>
 #include <rclcpp/generic_subscription.hpp>
 
 namespace mrs_robot_diagnostics

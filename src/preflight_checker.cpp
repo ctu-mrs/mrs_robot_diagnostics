@@ -1,4 +1,4 @@
-#include <mrs_robot_diagnostics/preflight_checker.h>
+#include <mrs_robot_diagnostics/preflight_checker.hpp>
 #include <sstream>
 
 namespace mrs_robot_diagnostics

@@ -6,6 +6,11 @@
 
 #include <rclcpp/rclcpp.hpp>
 
+#include <filesystem>
+#include <fstream>
+#include <stdexcept>
+
+
 namespace mrs_robot_diagnostics::utils
 {
 

@@ -1,8 +1,4 @@
-#include <mrs_robot_diagnostics/utils/wh_drained_integrator.h>
-
-#include <filesystem>
-#include <fstream>
-#include <stdexcept>
+#include <mrs_robot_diagnostics/utils/wh_drained_integrator.hpp>
 
 namespace mrs_robot_diagnostics::utils
 {

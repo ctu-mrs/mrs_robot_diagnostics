@@ -1,6 +1,9 @@
 #pragma once
 
+#include <filesystem>
+#include <fstream>
 #include <mutex>
+#include <stdexcept>
 #include <string>
 
 #include <rclcpp/rclcpp.hpp>

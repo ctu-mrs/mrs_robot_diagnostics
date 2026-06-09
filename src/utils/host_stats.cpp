@@ -1,18 +1,4 @@
-#include <mrs_robot_diagnostics/utils/host_stats.h>
-
-#include <algorithm>
-#include <cctype>
-#include <cmath>
-#include <cstdint>
-#include <cstdio>
-#include <exception>
-#include <filesystem>
-#include <fstream>
-#include <sstream>
-#include <string>
-#include <unordered_set>
-#include <utility>
-#include <vector>
+#include <mrs_robot_diagnostics/utils/host_stats.hpp>
 
 namespace mrs_robot_diagnostics::utils
 {
