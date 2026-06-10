@@ -85,8 +85,9 @@ std::string readProcName(int pid) {
 bool isPidString(const std::string &name) {
   return !name.empty() && std::all_of(name.begin(), name.end(), [](unsigned char c) { return std::isdigit(c); });
 }
+} // namespace
 
-(std::string iface) {
+void HostStats::setWifiInterface(std::string iface) {
   std::scoped_lock lock(mutex_);
   wifi_interface_filter_ = std::move(iface);
 }
