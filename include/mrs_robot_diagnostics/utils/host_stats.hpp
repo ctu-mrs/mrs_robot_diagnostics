@@ -5,6 +5,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
+#include <chrono>
 #include <exception>
 #include <filesystem>
 #include <fstream>
@@ -27,11 +28,12 @@ namespace mrs_robot_diagnostics::utils
  *
  * Collects CPU load / frequency / temperature, RAM usage, disk space, and
  * per-PID CPU loads. Maintains incremental state for CPU-tick diffs between
- * successive update() calls.
+ * successive update() calls, while scanning/sampling per-PID stats on a slower
+ * cadence to reduce overhead.
  *
  * * Per-PID CPU loads are approximated by attributing each ROS2-linked PID
-  * (detected via `librclcpp.so` in /proc/<pid>/maps) a top-style CPU % based on
-  * utime+stime deltas between successive update() calls.
+ * (detected via `librclcpp.so` in /proc/<pid>/maps) a top-style CPU % based on
+ * utime+stime deltas between successive update() calls.
  */
 
 class HostStats {
@@ -62,6 +64,16 @@ public:
    */
   void setWifiInterface(std::string iface);
 
+  /**
+   * @brief Configure the cadences used inside readNodeCpuLoads().
+   *
+   * @param node_cpu_sample_period  How often to compute per-PID CPU loads.
+   *                                Should match the host_info_rate period.
+   * @param pid_discovery_period    How often to re-scan /proc for new ROS PIDs.
+   *                                Defaults to 5 × node_cpu_sample_period if unset.
+   */
+  void setNodeCpuPeriods(std::chrono::milliseconds node_cpu_sample_period, std::chrono::milliseconds pid_discovery_period);
+
   /** @brief Refresh all stats from /proc and /sys. Safe to call from any single thread. */
   void update();
 
@@ -71,9 +83,12 @@ public:
 private:
   void readCpuLoad();
   void readCpuTemperature();
+  void readCpuCoreCount();
   void readCpuFreq();
   void readMemLoad();
   void readDiskSpace();
+  void discoverRosPids(std::chrono::steady_clock::time_point now);
+  void sampleNodeCpuLoads(std::chrono::steady_clock::time_point now);
   void readNodeCpuLoads();
   void readWifi();
 
@@ -89,11 +104,20 @@ private:
   int  cpu_cores_           = 1;
 
   // Per-PID CPU diff state carried across readNodeCpuLoads() invocations.
+  // Expensive node CPU sampling runs on a slower cadence than update():
+  // - PID discovery scans /proc at pid_discovery_period_ intervals
+  // - known ROS PIDs are sampled at node_cpu_sample_period_ intervals
   // proc_last_ticks_ stores last-seen utime+stime for each tracked PID.
-  // pid_is_ros_ caches the "is this PID a ROS2 process?" decision so we don't
-  // re-scan /proc/<pid>/maps on every tick. Both are pruned for dead PIDs.
-  std::unordered_map<int, long> proc_last_ticks_;
-  std::unordered_map<int, bool> pid_is_ros_;
+  std::unordered_map<int, long>         proc_last_ticks_;
+  std::unordered_set<int>               ros_pids_;
+  std::unordered_map<int, bool>         pid_is_ros_;
+  std::unordered_map<int, std::string>  pid_name_cache_;
+  long                                  node_cpu_total_diff_accum_ = 0;
+  std::chrono::steady_clock::time_point last_pid_discovery_tp_{};
+  std::chrono::steady_clock::time_point last_node_cpu_sample_tp_{};
+  bool                                  node_cpu_initialized_ = false;
+  std::chrono::milliseconds             pid_discovery_period_{5000};
+  std::chrono::milliseconds             node_cpu_sample_period_{1000};
 };
 
 } // namespace mrs_robot_diagnostics::utils
