@@ -124,8 +124,6 @@ private:
   rclcpp::Clock::SharedPtr clock_;
 
   rclcpp::CallbackGroup::SharedPtr cbkgrp_subs_;   ///< callback group for subscribers
-  rclcpp::CallbackGroup::SharedPtr cbkgrp_ss_;     ///< callback group for service servers
-  rclcpp::CallbackGroup::SharedPtr cbkgrp_sc_;     ///< callback group for service clients
   rclcpp::CallbackGroup::SharedPtr cbkgrp_timers_; ///< callback group for timers
 
   std::unique_ptr<preflight_checker::PreflightChecker> preflight_checker_; ///< helper object for performing preflight checks
