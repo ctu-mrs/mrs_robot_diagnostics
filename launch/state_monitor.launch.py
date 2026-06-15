@@ -245,7 +245,7 @@ def generate_launch_description():
         composable_node_descriptions=[state_monitor_node],
         parameters=[
             {'use_intra_process_comms': True},
-            {'thread_num': os.cpu_count()},
+            {'thread_num': 3},
             {'use_sim_time': use_sim_time},
         ],
         condition=IfCondition(standalone)
