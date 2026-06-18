@@ -238,14 +238,14 @@ def generate_launch_description():
         namespace=robot_name,
         name=namespace + '_container',
         package='rclcpp_components',
-        executable='component_container_mt',
+        executable='component_container_events_cbg',
         output="screen",
         arguments=['--ros-args', '--log-level', LaunchConfiguration('log_level')],
         # prefix=['debug_roslaunch ' + os.ttyname(sys.stdout.fileno())],
         composable_node_descriptions=[state_monitor_node],
         parameters=[
             {'use_intra_process_comms': True},
-            {'thread_num': 3},
+            {'thread_num': 2},
             {'use_sim_time': use_sim_time},
         ],
         condition=IfCondition(standalone)
