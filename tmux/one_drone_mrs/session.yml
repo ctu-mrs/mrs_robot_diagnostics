@@ -32,6 +32,7 @@ windows:
           world_config:=./config/world_config.yaml
           custom_config:=./config/custom_config.yaml
           network_config:=./config/network_config.yaml
+          # standalone:=true
   - status:
       layout: tiled
       panes:
@@ -63,7 +64,7 @@ windows:
       layout: tiled
       panes:
         - ros2 run rviz2 rviz2 -d ./rviz.rviz
-  - layout:
-      layout: tiled
-      panes:
-        - waitForCore; ~/.i3/layout_manager.sh ./layout.json
+  # - layout:
+  #     layout: tiled
+  #     panes:
+  #       - waitForCore; ~/.i3/layout_manager.sh ./layout.json

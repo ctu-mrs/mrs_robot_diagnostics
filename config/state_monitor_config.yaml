@@ -79,7 +79,7 @@ robot_diagnostics:
       address: "mrs_robot_diagnostics/MagnetometerSensorHandler"
       topic: "hw_api/magnetic_field"
       qos_reliability: "reliable"
-      expected_rate: 50.0
+      expected_rate: 15.0
       rate_tolerance: 0.3
 
     RemoteController:
