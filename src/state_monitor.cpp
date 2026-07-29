@@ -199,7 +199,12 @@ void StateMonitor::initialize() {
   ph_uav_info_      = mrs_lib::PublisherHandler<mrs_msgs::msg::UavInfo>(node_, "~/uav_info_out");
   sh_hw_api_status_ = mrs_lib::SubscriberHandler<mrs_msgs::msg::HwApiStatus>(shopts, "~/hw_api_status_in");
   sh_tracker_cmd_   = mrs_lib::SubscriberHandler<mrs_msgs::msg::TrackerCommand>(shopts, "~/tracker_cmd_in");
-  sh_mass_nominal_  = mrs_lib::SubscriberHandler<std_msgs::msg::Float64>(shopts, "~/mass_nominal_in");
+  {
+    // control_manager publishes mass_nominal once, latched (transient_local); match its QoS here
+    mrs_lib::SubscriberHandlerOptions shopts_mass_nominal = shopts;
+    shopts_mass_nominal.qos                               = rclcpp::QoS(1).transient_local();
+    sh_mass_nominal_                                      = mrs_lib::SubscriberHandler<std_msgs::msg::Float64>(shopts_mass_nominal, "~/mass_nominal_in");
+  }
   sh_mass_estimate_ = mrs_lib::SubscriberHandler<std_msgs::msg::Float64>(shopts, "~/mass_estimate_in");
 
   // | -------- Acquisition utils ------ |
@@ -294,9 +299,14 @@ void StateMonitor::timerMain() {
   const auto hw_api_mag_heading             = processIncomingMessage(sh_hw_api_mag_heading_);
   const auto hw_api_status                  = processIncomingMessage(sh_hw_api_status_);
   const auto mass_estimate                  = processIncomingMessage(sh_mass_estimate_);
-  const auto mass_nominal                   = processIncomingMessage(sh_mass_nominal_);
   const auto mpc_tracker_diagnostics        = processIncomingMessage(sh_mpc_tracker_diagnostics_);
   const auto tracker_cmd                    = processIncomingMessage(sh_tracker_cmd_);
+
+  // mass_nominal is published once, latched
+  // Once received, treat it as valid indefinitely instead.
+  subscriptionResult_t<std_msgs::msg::Float64> mass_nominal;
+  mass_nominal.hasNewMessage = sh_mass_nominal_.newMsg();
+  mass_nominal.message = mass_nominal.hasNewMessage ? sh_mass_nominal_.getMsg() : sh_mass_nominal_.peekMsg();
 
   // Watt-hour integration on each new battery sample.
   if (battery_state.hasNewMessage && battery_state.message != nullptr)
@@ -348,7 +358,7 @@ void StateMonitor::timerMain() {
   ph_uav_state_.publish(uav_state_msg);
 
   // to avoid getting timeout warnings on this latched message
-  if (sh_mass_nominal_.hasMsg())
+  if (mass_nominal.hasNewMessage)
     sh_mass_nominal_.setNoMessageTimeout(mrs_lib::no_timeout);
 }
 
